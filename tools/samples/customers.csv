@@ -1,0 +1,5 @@
+customer_id,name,email
+C-01,가온,ops@example.com
+C-02,다솜,ds@example.com
+C-02,다솜(중복),ds2@example.com
+C-03,라온,ro@example.com

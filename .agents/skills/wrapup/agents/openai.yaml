@@ -1,0 +1,5 @@
+interface:
+  display_name: "wrapup"
+  short_description: "요건 대조, 새 에이전트 검토, 제출 문서"
+policy:
+  allow_implicit_invocation: false

@@ -1,0 +1,5 @@
+interface:
+  display_name: "verify"
+  short_description: "새 에이전트의 독립 재계산, 행 대조, curl 확인"
+policy:
+  allow_implicit_invocation: false

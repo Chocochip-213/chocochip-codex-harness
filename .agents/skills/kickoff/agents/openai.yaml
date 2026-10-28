@@ -1,0 +1,5 @@
+interface:
+  display_name: "kickoff"
+  short_description: "과제 시작 점검, 요구 확인표, 담당자 첫 질문"
+policy:
+  allow_implicit_invocation: false

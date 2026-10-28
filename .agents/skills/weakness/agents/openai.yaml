@@ -1,0 +1,5 @@
+interface:
+  display_name: "weakness"
+  short_description: "남은 약점, 한 화면 요약, 점검 질문"
+policy:
+  allow_implicit_invocation: false

@@ -1,0 +1,5 @@
+interface:
+  display_name: "relay"
+  short_description: "담당자 답 기록, 다음 확인, 개발 시작 메모"
+policy:
+  allow_implicit_invocation: false

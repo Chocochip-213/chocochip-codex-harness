@@ -1,0 +1,7 @@
+# chocochip-codex-harness: 막는 규칙만 둔다. 기본 승인 설정을 넓히는 허용 규칙은 두지 않는다.
+# 작업 컴퓨터의 내용은 밖으로 내보내지 않는다. 승인 창에서 실수로 허용해도 실행되지 않게 막는다.
+prefix_rule(pattern=["git", "push"], decision="forbidden")
+prefix_rule(pattern=["git", "remote", ["add", "set-url"]], decision="forbidden")
+prefix_rule(pattern=["gh"], decision="forbidden")
+# 커밋 메시지 형식 훅(commit-msg)을 건너뛰는 커밋은 막는다.
+prefix_rule(pattern=["git", "commit", ["--no-verify", "-n"]], decision="forbidden")

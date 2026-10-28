@@ -1,0 +1,20 @@
+#!/bin/sh
+# chocochip-codex-harness: 커밋 메시지 첫 줄이 '타입(범위): 한국어 요약' 형식인지 검사한다.
+# Codex가 실행한 커밋만 검사한다. 사용자가 shell 탭에서 하거나 플랫폼이 하는 커밋은 막지 않는다.
+[ -n "${CODEX_THREAD_ID:-}${CODEX_TOOL_CALL_ID:-}" ] || exit 0
+first=$(sed -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' "$1" | head -n 1)
+case "$first" in
+  "Merge "*|"Revert "*|"fixup! "*|"squash! "*|"amend! "*) exit 0 ;;
+esac
+hangul=$(printf '[\352\353\354\355]')
+if printf '%s\n' "$first" | grep -Eq '^(feat|fix|refactor|test|docs|chore|perf|style|build|ci|revert)(\([^)]+\))?!?: [^ ]' &&
+   printf '%s\n' "$first" | LC_ALL=C grep -q "$hangul"; then
+  exit 0
+fi
+cat >&2 <<'EOF'
+커밋하지 않았습니다. 메시지 첫 줄을 '타입(범위): 한국어 요약'으로 고쳐 다시 커밋하세요.
+  예: docs(plan): 범위 합의 기록
+  타입: feat 기능, fix 버그 수정, refactor 구조 변경, test 테스트, docs 문서, chore 설정·도구
+EOF
+printf '받은 첫 줄: %s\n' "$first" >&2
+exit 1

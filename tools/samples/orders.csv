@@ -1,0 +1,6 @@
+order_id,customer_id,amount
+O1,C-01,10
+O2,c01,20
+O3,C-02,30
+O4,C-04,40
+O5,,50
