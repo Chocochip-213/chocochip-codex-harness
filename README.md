@@ -14,7 +14,7 @@ git clone --depth 1 https://github.com/Chocochip-213/chocochip-codex-harness /tm
 - 잘 깔렸는지: `bash .harness/tools/selftest.sh` → '실패 0'.
 - Codex에게 시켜도 됩니다. 과제 폴더에서 codex를 켜고 이렇게 말합니다.
   `깃허브 Chocochip-213/chocochip-codex-harness 를 /tmp/h 에 clone해서 이 폴더에 설치해 줘.`
-  샌드박스가 네트워크와 `.agents`·`.codex`·`.git` 쓰기를 막아서 승인 창이 두 번(clone, 설치) 뜹니다. 둘 다 y. 설치와 커밋까지 끝나면 `/new`를 쳐야 스킬과 커밋 규칙이 보입니다.
+  샌드박스가 네트워크와 `.agents`·`.codex`·`.git` 쓰기를 막아서 승인 창이 두 번(clone, 설치) 뜹니다. 둘 다 y. 설치와 커밋까지 끝나면 `/new`를 쳐야 스킬과 금지 규칙이 적용됩니다.
 - `/tmp/h`가 이미 있으면 `bash /tmp/h/setup.sh`만 다시 실행합니다. 설치하다 멈췄을 때도 같은 명령을 다시 실행하면 이어서 깝니다.
 - 'git 사용자 이름·이메일이 없습니다'가 나오면 안내대로 `git config` 두 줄을 친 뒤 다시 실행합니다.
 - 과제에 같은 폴더 이름의 스킬(`.agents/skills/verify` 등)이나 하네스가 만들지 않은 `.harness` 폴더가 있으면, 또는 홈 폴더에서 실행하면 아무것도 바꾸지 않고 멈춥니다. 다른 폴더에 같은 스킬 이름이 있으면 경고만 하니, 그때는 "`.agents/skills/<이름>/SKILL.md`를 읽고 그대로 해 줘"로 부릅니다.
@@ -41,8 +41,8 @@ git clone --depth 1 https://github.com/Chocochip-213/chocochip-codex-harness /tm
 | `.agents/skills/kickoff` | 사용자용 '과제 한눈에' 요약, 환경·README·데이터 점검, 요구 확인표(확정·가정·질문·정의 확인), 결과를 크게 바꾸는 순서의 담당자 첫 질문 초안(실제 데이터 한 건, 처리안과 다른 선택지, 영향 건수) |
 | `.agents/skills/relay` | 담당자 답 기록, README와 다른 점, 다음 확인 메시지, 범위 합의, 개발 시작 메모 |
 | `.agents/skills/verify` | 웹이면 서버가 지금 코드로 도는지부터(라우트별 curl을 한 스크립트로, 상태를 바꾸는 요청은 되돌림), 새 에이전트의 독립 재계산, 레코드별 차이 파일, 행 대조 |
-| `.agents/skills/wrapup` | 요건 대조, 새 에이전트의 요건 검토(요청 안 한 동작 포함), 10분 안에 읽을 제출 문서, 계획 문서를 지금 상태로 정리, 키·개인정보 점검. 스킬 안에서는 고치지 않고 고칠 후보를 맨 끝에 한 번에 묻는다 |
-| `.agents/skills/weakness` | 남은 약점, 설명 노트를 지금 코드에 맞추기, 한 화면 요약(구조·핵심 숫자·약점·레코드 하나의 경로), 사용자가 자기 말로 정리, 점검 질문 |
+| `.agents/skills/wrapup` | 요건 대조, 새 에이전트의 검토(요청 안 한 동작, 빠진 구현, 사용자에게 보이는 화면), 10분 안에 읽을 제출 문서, 계획 문서를 지금 상태로 정리, 키·개인정보 점검. 스킬 안에서는 고치지 않고 고칠 후보를 맨 끝에 한 번에 묻는다 |
+| `.agents/skills/weakness` | 남은 약점, 설명 노트를 지금 코드에 맞추기, 한 화면 요약(구조·핵심 숫자·약점·입력 하나의 경로), 사용자가 자기 말로 정리, 점검 질문 |
 | `.harness/tools/env_check.py` | 파이썬·pip·PyPI 접속·이미 있는 패키지·포트·git·샌드박스 여부 |
 | `.harness/tools/profile_data.py` | CSV·TSV·JSON·JSONL·SQLite의 결측, 자리표시 값, 숫자 이상(음수·0·IQR 밖), 날짜 모양 섞임·없는 날짜, 표기 변형, 중복, 개인정보 모양 |
 | `.harness/tools/join_check.py` | 조인 전에 키 중복(행 불어남), 짝 없는 키(조용히 빠짐), 빈 키, 표기 흔들림 |
