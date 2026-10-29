@@ -11,10 +11,11 @@ fail=0
 ok() { if eval "$2"; then echo "PASS $1"; pass=$((pass + 1)); else echo "FAIL $1"; fail=$((fail + 1)); fi; }
 commit() { git -c user.name=t -c user.email=t@t commit -q "$@"; }
 mk() { mkdir -p "$1"; cd "$1" || exit 1; git init -q -b main; echo "# 과제" > README.md; git add README.md; commit -m init; }
-run() { bash "$SRC/setup.sh" >/dev/null 2>"$T/err"; }
+run() { bash "$SRC/setup.sh" >"$T/out" 2>"$T/err"; }
 
 mk "$T/a"; run; r=$?
 ok "새 설치 종료 0" "[ $r -eq 0 ]"
+ok "설치 출력에 자체 점검 결과(실패 0)" "grep -q '^- 자체 점검(bash .harness/tools/selftest.sh): 통과 [0-9]*, 실패 0$' '$T/out'"
 ok "AGENTS.md 맨 앞 표시" "head -1 AGENTS.md | grep -qxF '<!-- chocochip-codex-harness -->'"
 ok "규칙 파일 설치" "[ -f .codex/rules/chocochip-codex-harness.rules ]"
 ok "추론 강도 설정(평소 medium, /plan high)" "grep -qx 'plan_mode_reasoning_effort = \"high\"' .codex/config.toml && git ls-files --error-unmatch .codex/config.toml >/dev/null"

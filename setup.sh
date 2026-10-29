@@ -204,10 +204,22 @@ else
   git_msg="커밋하지 못했습니다: $(first_err). 원인 후보는 .git 읽기 전용, 커밋 훅, 서명 설정입니다. 하네스 파일은 커밋 대기에서 뺐습니다. $retry."
 fi
 
+# 설치한 도구가 이 환경에서 도는지 바로 본다(임시 폴더에서만 돈다). 실패해도 파일 설치는 끝난 상태다
+if st="$(bash "$H/tools/selftest.sh" 2>&1)"; then st_ok=1; else st_ok=0; fi
+self_msg="자체 점검(bash .harness/tools/selftest.sh): $(printf '%s\n' "$st" | tail -n 1)"
+if [ "$st_ok" -eq 0 ]; then
+  fails="$(printf '%s\n' "$st" | grep '^FAIL' || true)"
+  if [ -n "$fails" ]; then
+    self_msg="$self_msg. 실패한 도구는 쓰지 않는다(원인은 위 명령을 직접 실행하면 FAIL 아래에 나온다):
+$fails"
+  fi
+fi
+
 cat <<EOF
 완료: $DST
 - $agents_msg
 - git: $git_msg
+- $self_msg
 - 스킬(부를 때만 동작):
     \$kickoff   과제를 받았을 때. 환경·README·데이터 점검, 요구 확인표, 담당자 첫 질문
     \$relay     담당자 답을 붙여 넣을 때. 기록, 다음 확인, 합의되면 개발 시작 메모
@@ -223,5 +235,4 @@ cat <<EOF
 - codex를 아직 안 켰으면 이 폴더에서 codex를 켠다.
 - Codex 안에서 설치했으면 /new 를 친다. 스킬과 금지 규칙은 새 세션부터 적용된다. 어디서 실행할지 묻는 창이 뜨면 1(Use current Git worktree)을 고른다.
 - "\$kickoff 남은 시간 <남은 시간>. 내가 읽은 목표: <한 줄>"로 시작한다(\$kickoff 까지 치면 목록에 뜬다).
-- 자체 점검은 shell 탭에서: bash .harness/tools/selftest.sh
 EOF

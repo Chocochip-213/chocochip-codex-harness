@@ -21,13 +21,9 @@ Bash, Git, Python 3, Codex CLI가 있는 환경에서 씁니다.
 git clone --depth 1 https://github.com/Chocochip-213/chocochip-codex-harness /tmp/h && bash /tmp/h/setup.sh
 ```
 
-설치 뒤 도구가 동작하는지 확인합니다.
-
-```bash
-bash .harness/tools/selftest.sh
-```
-
-마지막 줄이 `실패 0`이고 종료 코드가 0이면 도구가 이 환경에서 제대로 동작한다는 뜻입니다.
+설치기는 끝에서 도구 자체 점검(`bash .harness/tools/selftest.sh`)까지 돌립니다.
+출력의 `자체 점검` 줄이 `실패 0`이면 도구가 이 환경에서 제대로 동작한다는 뜻입니다. 실패한 도구는 그 줄 아래에 나오며, 쓰지 않습니다.
+점검에 실패하거나 점검을 못 했어도 파일 설치는 끝난 상태입니다. 원인은 `bash .harness/tools/selftest.sh`를 직접 실행하면 보이고, 원인을 해결한 뒤 같은 명령으로 다시 점검합니다.
 이 검사는 과제의 결과가 맞는지까지 확인하지는 않습니다.
 
 이제 과제 폴더에서 `codex`를 실행합니다.

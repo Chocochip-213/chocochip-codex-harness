@@ -2,17 +2,17 @@
 
 ## 시작 (3:00, 5분 안에)
 1. 터미널 + 두 번 → 탭 이름을 codex · server · shell 로
-2. shell 탭에서 하네스 설치(승인 창이 안 뜬다):
+2. shell 탭에서 하네스 설치(승인 창이 안 뜬다. 설치기가 끝에서 자체 점검까지 돌린다):
    git clone --depth 1 https://github.com/Chocochip-213/chocochip-codex-harness /tmp/h && bash /tmp/h/setup.sh
-   - '완료'와 '하네스 파일만 따로 커밋했습니다'가 보이면 끝
+   - '완료', '하네스 파일만 따로 커밋했습니다', '자체 점검 … 실패 0'이 보이면 끝. 실패한 도구는 쓰지 않는다(원인은 bash .harness/tools/selftest.sh)
    - 'git 사용자 이름·이메일이 없습니다'가 나오면 안내대로 git config 두 줄 → bash /tmp/h/setup.sh
-3. (10초) shell 탭: bash .harness/tools/selftest.sh → '실패 0'. 실패한 도구는 쓰지 않는다
-4. codex 탭: codex → 신뢰 확인 → 아래 줄의 강도가 medium인지(아니면 /model) → $kickoff 까지 쳐서 목록에 kickoff가 뜨는지($만 치면 다른 스킬이 많아 안 보일 수 있다)
+   - clone이 'already exists'로 멈추면(이미 받아 둠) bash /tmp/h/setup.sh
+3. codex 탭: codex → 신뢰 확인 → 아래 줄의 강도가 medium인지(아니면 /model) → $kickoff 까지 쳐서 목록에 kickoff가 뜨는지($만 치면 다른 스킬이 많아 안 보일 수 있다)
    - 설치 출력에 추론 강도 설정을 넣었다고 나왔으면 평소 medium, /plan을 켜면 high로 바뀐다(과제 설정이 있어 넣지 않았다고 나오면 /plan 전에 /model에서 high를 고른다)
    - 켜자마자 업데이트하고 'restart Codex'로 끝나면 codex를 한 번 더 친다
    - codex 안에서 설치했으면 /new 를 친 뒤에 보인다(금지 규칙도 /new 뒤부터 적용)
    - /new 뒤 어디서 실행할지 묻는 창이 뜨면 1(Use current Git worktree). 2를 고르면 다른 폴더 복사본에서 작업하게 된다
-5. README를 끝까지 읽는다(사람이 직접)
+4. README를 끝까지 읽는다(사람이 직접)
 
 ## 질문 세션 (2:50~2:30)
 - "$kickoff 남은 시간 2시간 50분. 내가 읽은 목표: <한 줄>" → COLLAB.md의 요구 확인표와 PLAN.md의 시간 기준점을 30초 훑는다 → 초안 아래 후보에서 보낼 질문을 직접 고른다 → 메신저로 (줄바꿈 Shift+Enter, 보내기 Enter)
