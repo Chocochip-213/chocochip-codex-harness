@@ -18,6 +18,10 @@
 - 읽는 형식: .csv .tsv .json(객체 목록, 또는 객체 목록을 값으로 가진 객체) .jsonl, 그리고 ID만 한 줄에 하나씩 적은 .txt
 - 종료 코드: 0 일치, 1 불일치, 2 검사 0건(입력이나 결과 쪽에서 ID를 하나도 못 읽음), 3 사용법·파일 오류.
 - 차이는 메우지 말고 '원인 미상 n건'으로 남긴다. 개수는 전체를 세고 예시만 일부 보여 준다(--show 0이면 전부).
+
+보고:
+- 대조할 행 목록은 /tmp에 따로 만들고, 요구에 없으면 제출 결과 파일에 넣지 않는다.
+- 출력 첫 줄은 '요약:'(종료 코드와 행 수)이다. 단계 보고에는 이 줄만 붙이고, 안 맞을 때만 그 아래 내용을 알린다.
 """
 import argparse
 import csv
@@ -40,6 +44,7 @@ RRN = re.compile(r"(?<!\d)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])-?[1-8]\d{6}(
 
 
 def die(msg):
+    print(f"요약: 종료 3, 실행 오류: {msg}")
     print(msg, file=sys.stderr)
     sys.exit(3)
 
@@ -74,6 +79,9 @@ def split_spec(spec, parts):
 
 
 ROW_LIST_NAMES = ("rows", "data", "items", "records", "results")
+NOTES = []  # 읽으면서 알릴 말. 요약 줄 다음에 찍는다
+PICKED = []  # JSON에서 고른 행 목록 이름. 요약 줄 끝에 붙인다
+SEP = "\x1f"  # 여러 열을 합친 키의 구분자(값 안의 '|'와 섞이지 않게). 보일 때만 '|'로 바꾼다
 
 
 def pick_rows(data, path):
@@ -82,15 +90,22 @@ def pick_rows(data, path):
         return data
     if not isinstance(data, dict):
         die(f"{path}: 객체 목록이 아닙니다(최상위가 {type(data).__name__})")
-    full = [(k, v) for k, v in data.items() if isinstance(v, list) and v and all(isinstance(x, dict) for x in v)]
-    empty = [(k, v) for k, v in data.items() if isinstance(v, list) and not v]
-    cands = full or empty
+    cands = [(k, v) for k, v in data.items() if isinstance(v, list) and (not v or any(isinstance(x, dict) for x in v))]
     if not cands:
         die(f"{path}: 객체 목록을 찾지 못했습니다(최상위 키: {', '.join(map(str, data)) or '없음'})")
-    named = [c for c in cands if str(c[0]).lower() in ROW_LIST_NAMES]
-    key, rows = (named or cands)[0]
+    named = sorted((c for c in cands if str(c[0]).lower() in ROW_LIST_NAMES),
+                   key=lambda c: ROW_LIST_NAMES.index(str(c[0]).lower()))
+    nonempty = [c for c in cands if c[1]]
+    if named:
+        key, rows = named[0]
+    elif len(nonempty) > 1:
+        die(f"{path}: 어느 목록이 행인지 정할 수 없습니다(객체 목록: {', '.join(str(k) for k, _ in nonempty)}). "
+            "행 목록을 rows로 이름 붙이거나 그 목록만 따로 저장한다")
+    else:
+        key, rows = (nonempty or cands)[0]
     others = [str(k) for k, _ in cands if k != key]
-    print(f"({Path(path).name}: JSON의 '{key}' 목록을 읽음" + (f", 다른 목록: {', '.join(others)})" if others else ")"))
+    PICKED.append(f"{Path(path).name}: '{key}'")
+    NOTES.append(f"({Path(path).name}: JSON의 '{key}' 목록을 읽음" + (f", 다른 목록: {', '.join(others)})" if others else ")"))
     return rows
 
 
@@ -112,7 +127,9 @@ def records(path):
             return list(reader.fieldnames or []), recs
     except (json.JSONDecodeError, csv.Error) as e:
         die(f"{path}: 읽지 못했습니다({type(e).__name__}: {e})")
-    recs = [r for r in recs if isinstance(r, dict)]
+    bad = sum(1 for r in recs if not isinstance(r, dict))
+    if bad:
+        die(f"{path}: 행 목록에 객체가 아닌 항목 {bad}개(행이 조용히 빠질 수 있어 멈춤)")
     names = []
     for r in recs:
         for k in r:
@@ -128,7 +145,7 @@ def cell(r, cols):
         if isinstance(v, (list, tuple)):
             v = ";".join(str(x) for x in v)
         vals.append("" if v is None else str(v).strip())
-    return "|".join(vals)
+    return SEP.join(vals)
 
 
 def keys_of(path, key, sep=None):
@@ -140,14 +157,14 @@ def keys_of(path, key, sep=None):
     names, recs = records(path)
     cols = key.split("+")
     missing = [c for c in cols if c not in names]
-    if missing:
+    if missing and (names or recs):  # 열 이름도 행도 없으면(빈 목록) 검사 0건으로 넘긴다
         die(f"{path}: 열이 없습니다: {missing}. 있는 열: {names}")
     ids, empty = [], 0
     for r in recs:
         v = cell(r, cols)
         parts = [x.strip() for x in v.split(sep)] if sep else [v]
         for x in parts:
-            if x.replace("|", "") == "":
+            if x.replace(SEP, "") == "":
                 empty += 1
             else:
                 ids.append(x)
@@ -170,7 +187,7 @@ def main():
         seq = list(seq)
         shown = seq[:lim] if lim else seq
         tail = f" 외 {len(seq) - len(shown)}개(전부 보려면 --show 0)" if len(shown) < len(seq) else ""
-        return ", ".join(mask(x) for x in shown) + tail
+        return ", ".join(mask(str(x).replace(SEP, "|")) for x in shown) + tail
 
     in_path, in_key = split_spec(a.input, 2)
     if in_key is None:
@@ -191,25 +208,28 @@ def main():
             ap.error(f"--group 형식은 경로:ID열:구분열 입니다: {spec}")
         names, recs = records(p)
         for c in k.split("+") + [g]:
-            if c not in names:
+            if (names or recs) and c not in names:
                 die(f"{p}: 열이 없습니다: {c}. 있는 열: {names}")
         buckets = {}
         for r in recs:
             label = str(r.get(g) if r.get(g) is not None else "").strip() or "(구분 없음)"
             ids, empty = buckets.setdefault(label, ([], [0]))
             v = cell(r, k.split("+"))
-            if v.replace("|", "") == "":
+            if v.replace(SEP, "") == "":
                 empty[0] += 1
             else:
                 ids.append(v)
         for label, (ids, empty) in buckets.items():
             parts.append((f"{g}={label}", ids, empty[0]))
 
-    if not inp:
-        print(f"검사 0건: 입력 {in_path}에서 ID를 하나도 읽지 못했습니다(ID가 빈 행 {in_empty}개). 통과가 아닙니다.")
-        return 2
-    if not any(ids for _, ids, _ in parts):
-        print("검사 0건: 결과 쪽 파일에서 ID를 하나도 읽지 못했습니다. 통과가 아닙니다.")
+    if not inp or not any(ids for _, ids, _ in parts):
+        print("요약: 종료 2, 검사 0건(통과 아님)")
+        for n in NOTES:
+            print(n)
+        if not inp:
+            print(f"검사 0건: 입력 {in_path}에서 ID를 하나도 읽지 못했습니다(ID가 빈 행 {in_empty}개). 통과가 아닙니다.")
+        else:
+            print("검사 0건: 결과 쪽 파일에서 ID를 하나도 읽지 못했습니다. 통과가 아닙니다.")
         return 2
 
     cin = Counter(inp)
@@ -219,14 +239,6 @@ def main():
         cout.update(c)
     out_rows = sum(len(ids) for _, ids, _ in parts)
     out_empty = sum(e for _, _, e in parts)
-
-    print(f"들어온 행 {len(inp) + in_empty}개(고유 ID {len(cin)}개" + (f", ID가 빈 행 {in_empty}개" if in_empty else "") + ")")
-    print("나간 행: " + " + ".join(f"{n} {len(ids)}" for n, ids, _ in parts) + f" = {out_rows}개" +
-          (f"(ID가 빈 행 {out_empty}개 따로)" if out_empty else ""))
-    dup_in = {x: n for x, n in cin.items() if n > 1}
-    if dup_in:
-        print(f"  입력에 같은 ID가 여러 행인 ID {len(dup_in)}개(행 {sum(dup_in.values())}개): 결과 쪽에도 행 단위로 맞아야 한다. 예: " +
-              ex(f"{x}×{n}" for x, n in sorted(dup_in.items())))
 
     lost, short, extra, more = [], [], [], []
     for x in sorted(set(cin) | set(cout)):
@@ -243,12 +255,29 @@ def main():
         else:
             more.append(f"{x}(입력 {i}행, 결과 {o}행: {where})")
     empty_bad = in_empty != out_empty
+    in_rows = len(inp) + in_empty
+    parts_str = " + ".join(f"{n} {len(ids)}" for n, ids, _ in parts) + (f" + ID가 빈 행 {out_empty}" if out_empty else "")
+    n_bad = len(lost) + len(short) + len(extra) + len(more) + (1 if empty_bad else 0)
+    picked = f" ({', '.join(PICKED)})" if PICKED else ""
+    if n_bad:
+        print(f"요약: 종료 1, 들어온 {in_rows}행, 나간 {parts_str} = {out_rows + out_empty}행, 원인 미상 {n_bad}건(ID 단위)" + picked)
+    else:
+        print(f"요약: 종료 0, 들어온 {in_rows}행 = {parts_str}" + picked)
+    for n in NOTES:
+        print(n)
 
-    if not (lost or short or extra or more or empty_bad):
+    print(f"들어온 행 {in_rows}개(고유 ID {len(cin)}개" + (f", ID가 빈 행 {in_empty}개" if in_empty else "") + ")")
+    print("나간 행: " + " + ".join(f"{n} {len(ids)}" for n, ids, _ in parts) + f" = {out_rows}개" +
+          (f"(ID가 빈 행 {out_empty}개 따로)" if out_empty else ""))
+    dup_in = {x: n for x, n in cin.items() if n > 1}
+    if dup_in:
+        print(f"  입력에 같은 ID가 여러 행인 ID {len(dup_in)}개(행 {sum(dup_in.values())}개): 결과 쪽에도 행 단위로 맞아야 한다. 예: " +
+              ex(f"{x}×{n}" for x, n in sorted(dup_in.items())))
+
+    if not n_bad:
         print("일치: 모든 ID가 들어온 행 수만큼 결과 쪽에 있습니다." +
               (f" (ID가 빈 행 {in_empty}개는 개수로만 맞췄습니다)" if in_empty else ""))
         return 0
-    n_bad = len(lost) + len(short) + len(extra) + len(more) + (1 if empty_bad else 0)
     print(f"불일치: 원인 미상 {n_bad}건. 원인을 확인하기 전에는 메우지 않는다.")
     if lost:
         print(f"- 결과 쪽 어디에도 없는 ID {len(lost)}개: " + ex(lost))
@@ -269,5 +298,6 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         sys.exit(3)
     except Exception as e:  # 예상 못 한 오류도 '불일치(1)'와 헷갈리지 않게 3으로 끝낸다
+        print(f"요약: 종료 3, 실행 오류: {type(e).__name__}: {e}")
         print(f"실행 오류: {type(e).__name__}: {e}", file=sys.stderr)
         sys.exit(3)

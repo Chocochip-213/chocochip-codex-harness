@@ -7,6 +7,11 @@
 - .harness/ .agents/ 는 하네스 파일이라 뺀다. 입력 데이터 폴더는 --exclude로 뺄 수 있다.
 - 데이터 파일(csv·tsv·json·jsonl)의 개인정보 모양은 입력에 원래 있던 값일 수 있어 파일별 줄 수만 보인다.
   줄까지 보려면 --show-data. 키 모양·할 일 표시는 데이터 파일에서도 줄까지 보인다.
+- 제출 문서의 /tmp 인용: 하네스 설치 뒤 바뀐 .md(verify/·AGENTS.md 제외)에서 /tmp를 말하는 줄. 근거로 든 스크립트면
+  verify/로 옮기거나 문장을 고친다. 행 목록 같은 자료 사본 경로면 남겨도 된다.
+- 남은 검증 차이: verify/의 report·diff 번호 중 가장 큰 N의 diff_N.csv에 차이 줄이 있으면. 고쳤으면 verify 비교를
+  다시 해 diff·report를 지금 값으로 갱신한다. 고치지 않았으면 남긴 이유를 적는다.
+- 열지 못한 파일(권한 등)도 찾은 것으로 센다. 지워진 파일은 건너뛴다.
 - 찾은 값은 가려서 보인다(전체 값을 화면과 로그에 내지 않는다). 맨 앞 줄에 종류별 건수를 먼저 보인다.
 - 종료 코드: 0 찾은 것 없음, 1 찾은 것 있음, 3 실행 오류.
 """
@@ -54,6 +59,10 @@ CATEGORIES = [
     ("rrn", "주민·외국인등록번호 모양", [re.compile(RRN)]),
 ]
 PII = {"email", "phone", "landline", "rrn"}
+TMP_REF = re.compile(r"(?<![\w.])/tmp(?![\w-])")
+DIFF_NAME = re.compile(r"^verify/diff_(\d+)\.csv$")
+REPORT_NAME = re.compile(r"^verify/report_(\d+)\.md$")
+FILE_CHECKS = [("tmp", "제출 문서의 /tmp 인용"), ("diff", "남은 검증 차이"), ("unread", "열지 못한 파일")]
 MASKS = [
     (re.compile(EMAIL), "<이메일>"),
     (re.compile(RRN), "<등록번호>"),
@@ -151,6 +160,59 @@ def list_files(excludes, include_ignored):
     return kept, source, skipped_ex, ignored
 
 
+def key_spans(line):
+    return [m.span() for pat in KEY_PATTERNS for m in pat.finditer(line)]
+
+
+def changed_md(files):
+    """하네스 설치(.harness/BASE) 뒤 바뀌었거나 git이 추적하지 않는 .md. BASE가 없거나 git이 아니면 .md 전부."""
+    md = [n for n in files if n.lower().endswith(".md") and not n.startswith("verify/") and n != "AGENTS.md"]
+    base = Path(".harness/BASE")
+    b = base.read_text(encoding="utf-8", errors="replace").strip() if base.is_file() else ""
+    if not b:
+        return md
+    try:
+        p = subprocess.run(["git", "diff", "--name-only", "-z", b], capture_output=True, timeout=30)
+        if p.returncode != 0:
+            return md
+        changed = {n for n in p.stdout.decode("utf-8", "replace").split("\0") if n}
+        tracked = set(git_list(["-c"]))
+    except (OSError, subprocess.TimeoutExpired):
+        return md
+    return [n for n in md if n in changed or n not in tracked]
+
+
+def file_checks(files):
+    """줄 하나가 아니라 파일 묶음을 봐야 하는 점검(/tmp 인용, 남은 검증 차이)"""
+    out = {"tmp": [], "diff": []}
+    for name in changed_md(files):
+        try:
+            text = Path(name).read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue  # 못 읽은 파일은 본 점검에서 '열지 못한 파일'로 센다
+        for lineno, line in enumerate(text.splitlines(), 1):
+            if TMP_REF.search(line):
+                out["tmp"].append(f"{name}:{lineno}  {mask_line(line, key_spans(line))}")
+    diffs = {int(m.group(1)): n for n in files for m in [DIFF_NAME.match(n)] if m}
+    nums = set(diffs) | {int(m.group(1)) for n in files for m in [REPORT_NAME.match(n)] if m}
+    if nums and max(nums) in diffs:
+        name = diffs[max(nums)]
+        try:
+            rows = [ln for ln in Path(name).read_text(encoding="utf-8", errors="replace").splitlines()[1:] if ln.strip()]
+        except OSError:
+            rows = []
+        if rows:
+            out["diff"].append(f"{name}: 차이 {len(rows)}줄")
+    return out
+
+
+FILE_GUIDE = {
+    "tmp": "근거로 든 스크립트면 verify/로 옮기거나 문장을 고친다. 행 목록 같은 자료 사본 경로면 남겨도 된다",
+    "diff": "고쳤으면 verify 비교를 다시 해 diff·report를 지금 값으로 갱신한다. 고치지 않았으면 남긴 이유를 적는다",
+    "unread": "검사하지 못했다. 권한을 확인하거나 남긴 이유를 적는다",
+}
+
+
 class Parser(argparse.ArgumentParser):
     def error(self, message):  # 사용법 오류도 실행 오류(3)로 구분한다
         self.print_usage(sys.stderr)
@@ -168,14 +230,17 @@ def main():
     files, source, skipped_ex, ignored = list_files(a.exclude, a.include_ignored)
     found = {key: [] for key, _, _ in CATEGORIES}
     data_counts = {}
-    binary, unreadable = [], []
+    binary = []
+    found["unread"] = []
     for name in files:
         path = Path(name)
         try:
             with open(path, "rb") as f:
                 raw = f.read()
+        except FileNotFoundError:
+            continue  # git 목록에는 있지만 지워진 파일
         except OSError as e:
-            unreadable.append(f"{name}({type(e).__name__})")
+            found["unread"].append(f"{name}({type(e).__name__})")
             continue
         if b"\0" in raw[:8192]:
             binary.append(name)
@@ -183,20 +248,23 @@ def main():
         text = raw.decode("utf-8", "replace")
         is_data = path.suffix.lower() in DATA_EXT
         for lineno, line in enumerate(text.splitlines(), 1):
-            key_spans = [m.span() for pat in KEY_PATTERNS for m in pat.finditer(line)]
+            spans = key_spans(line)
             for key, _, pats in CATEGORIES:
-                if not (key_spans if key == "key" else any(p.search(line) for p in pats)):
+                if not (spans if key == "key" else any(p.search(line) for p in pats)):
                     continue
                 if key in PII and is_data and not a.show_data:
                     data_counts.setdefault(name, {}).setdefault(key, 0)
                     data_counts[name][key] += 1
                     continue
-                found[key].append(f"{name}:{lineno}  {mask_line(line, key_spans)}")
+                found[key].append(f"{name}:{lineno}  {mask_line(line, spans)}")
 
+    found.update(file_checks(files))
     labels = {key: label for key, label, _ in CATEGORIES}
+    labels.update(FILE_CHECKS)
+    order = [key for key, _, _ in CATEGORIES] + [key for key, _ in FILE_CHECKS]
     dsum = sum(sum(c.values()) for c in data_counts.values())
     total = sum(len(v) for v in found.values()) + dsum
-    summary = ", ".join(f"{labels[k]} {len(found[k])}" for k, _, _ in CATEGORIES)
+    summary = ", ".join(f"{labels[k]} {len(found[k])}" for k in order)
     print(f"결과: 찾은 것 {total}건 ({summary}, 데이터 파일의 개인정보 모양 {dsum}줄)"
           + (" → 각각 지우거나 남기는 이유를 적는다" if total else ""))
     excl = ", ".join(a.exclude) if a.exclude else "없음"
@@ -207,11 +275,9 @@ def main():
               + ("" if a.include_ignored else ". 제출이 폴더 통째라면 --include-ignored로 함께 검사한다"))
     if binary:
         print(f"읽지 않은 파일(이진 파일) {len(binary)}개: " + ", ".join(binary))
-    if unreadable:
-        print(f"열지 못한 파일 {len(unreadable)}개: " + ", ".join(unreadable))
-    for key, label, _ in CATEGORIES:
+    for key in order:
         if found[key]:
-            print(f"[{label}] {len(found[key])}건")
+            print(f"[{labels[key]}] {len(found[key])}건" + (f" → {FILE_GUIDE[key]}" if key in FILE_GUIDE else ""))
             for r in found[key]:
                 print("  " + r)
     if data_counts:
