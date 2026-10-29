@@ -6,7 +6,7 @@
 # 작업 폴더를 따로 지정하려면: bash /tmp/h/setup.sh <작업 폴더>
 # 여러 번 실행해도 된다(하네스 파일만 새로 덮어쓰고, AGENTS.md에는 한 번만 덧붙인다).
 # 과제에 같은 폴더 이름의 스킬이나 하네스가 만들지 않은 .harness 폴더가 있으면 아무것도 바꾸지 않고 멈춘다.
-# Codex가 설치할 때: 이 스크립트를 과제 폴더에서 한 번 실행하면 끝이다. .agents·.codex·.git에 쓰므로 승인이 한 번 필요하고, 다른 문서는 찾아볼 필요 없다.
+# Codex가 설치할 때: 이 스크립트를 과제 폴더에서 한 번 실행하면 끝이다. .agents·.codex·.git에 쓰므로 승인 창이 뜰 수 있고(횟수는 환경마다 다르다), 다른 문서는 찾아볼 필요 없다.
 set -euo pipefail
 
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
@@ -211,9 +211,9 @@ cat <<EOF
 - 스킬(부를 때만 동작):
     \$kickoff   과제를 받았을 때. 환경·README·데이터 점검, 요구 확인표, 담당자 첫 질문
     \$relay     담당자 답을 붙여 넣을 때. 기록, 다음 확인, 합의되면 개발 시작 메모
-    \$verify    기본판이 처음 돌았을 때. 새 에이전트가 따로 계산, 행 대조, curl
+    \$verify    핵심 결과가 갖춰진 중간 점검(그 뒤 코드·데이터가 바뀌면 제출 전 한 번 더). 새 에이전트가 따로 계산, 행 대조, curl
     \$wrapup    마감할 때. 요건 대조, 새 에이전트 검토, 제출 문서, 키·개인정보 점검
-    \$weakness  제출 직전. 남은 약점, 구조 지도, 설명 점검
+    \$weakness  \$wrapup 뒤. 남은 약점, 한 화면 요약, 설명 점검
 - 도구: .harness/tools/ (env_check, profile_data, join_check, reconcile, precheck, selftest.sh)
 - 금지 규칙: .codex/rules/chocochip-codex-harness.rules (git push·원격 추가·gh·--no-verify 커밋을 막음. 커밋은 승인 창에서 y)
 - $cfg_msg
@@ -221,7 +221,7 @@ cat <<EOF
 - 치트시트: cat .harness/cheatsheet.md
 다음:
 - codex를 아직 안 켰으면 이 폴더에서 codex를 켠다.
-- Codex 안에서 설치했으면 /new 를 친다. 스킬과 금지 규칙은 새 세션부터 적용된다.
-- "\$kickoff 남은 시간 2시간 50분"으로 시작한다(\$kickoff 까지 치면 목록에 뜬다).
+- Codex 안에서 설치했으면 /new 를 친다. 스킬과 금지 규칙은 새 세션부터 적용된다. 어디서 실행할지 묻는 창이 뜨면 1(Use current Git worktree)을 고른다.
+- "\$kickoff 남은 시간 <남은 시간>. 내가 읽은 목표: <한 줄>"로 시작한다(\$kickoff 까지 치면 목록에 뜬다).
 - 자체 점검은 shell 탭에서: bash .harness/tools/selftest.sh
 EOF

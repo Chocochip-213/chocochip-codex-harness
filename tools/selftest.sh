@@ -41,6 +41,7 @@ check "reconcile 열 없는 행([{}])은 실행 오류 → 종료 3" bash -c "pr
 check "reconcile 결과 JSON에 객체 목록이 여럿이면 실행 오류 → 종료 3" bash -c "printf '{\"rows\":[{\"id\":\"x\"}],\"results\":[]}' > '$T/rows2.json'; python3 '$TOOLS/reconcile.py' --input '$S/values.csv:id' --part 쓴='$T/rows2.json:id' > /dev/null; [ \$? -eq 3 ]"
 check "join_check 실행" python3 "$TOOLS/join_check.py" --left "$S/orders.csv:customer_id" --right "$S/customers.csv:customer_id"
 check "join_check가 키 중복·표기 흔들림을 찾음" bash -c "python3 '$TOOLS/join_check.py' --left '$S/orders.csv:customer_id' --right '$S/customers.csv:customer_id' | grep -q '오른쪽 키 중복' && python3 '$TOOLS/join_check.py' --left '$S/orders.csv:customer_id' --right '$S/customers.csv:customer_id' | grep -q '표기 흔들림'"
+check "join_check 빈 목록([])은 검사 0건 → 종료 2, 다른 쪽 열 이름이 틀리면 종료 3" bash -c "printf '[]' > '$T/empty.json'; python3 '$TOOLS/join_check.py' --left '$T/empty.json:customer_id' --right '$S/customers.csv:customer_id' > /dev/null; [ \$? -eq 2 ] && python3 '$TOOLS/join_check.py' --left '$T/empty.json:customer_id' --right '$S/customers.csv:no_such_col' > /dev/null 2>&1; [ \$? -eq 3 ]"
 
 mkdir -p "$T/todo" "$T/clean"
 check "precheck가 할 일 표시를 찾음 → 종료 1" bash -c "cd '$T/todo' && printf 'x = 1  # TODO 고치기\n' > a.py; python3 '$TOOLS/precheck.py' > '$T/pc.txt'; [ \$? -eq 1 ] && grep -q 'TODO' '$T/pc.txt'"

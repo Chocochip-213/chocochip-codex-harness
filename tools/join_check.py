@@ -146,7 +146,9 @@ def main():
     if len(lc) != len(rc):
         die("왼쪽과 오른쪽 키 열 개수가 다릅니다")
     (lnames, left), (rnames, right) = records(lp), records(rp)
-    for path, cols, names in ((lp, lc, lnames), (rp, rc, rnames)):
+    for path, cols, names, rows in ((lp, lc, lnames, left), (rp, rc, rnames, right)):
+        if not names and not rows:
+            continue  # 빈 목록이라 열 정보가 없다. 아래에서 검사 0건으로 끝난다.
         missing = [c for c in cols if c not in names]
         if missing:
             die(f"{path}: 열이 없습니다: {missing}. 있는 열: {names}")

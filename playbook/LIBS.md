@@ -26,5 +26,5 @@
 넣지 않은 것과 이유
 - matplotlib 차트: 기본 글꼴에 한글이 없어 깨진다. 브라우저 차트를 쓴다.
 - Streamlit, Datasette: 의존성이 많고 미리보기 프록시를 통과하는지 확인되지 않았다.
-- statsmodels, scikit-learn, OR-Tools: 설치가 크고(수십 MB), 180분 안에 결과를 설명하기 어렵다. 표준 대안이 있다.
+- statsmodels, scikit-learn, OR-Tools: 설치가 크고(수십 MB), 제한된 작업 시간 안에 결과를 설명하기 어렵다. 표준 대안이 있다.
 - 오프라인 wheel 묶음: 작업 환경의 파이썬·glibc 버전을 모른다. 작업 환경에서 pip가 막혀 있으면 그때 다시 정한다.
