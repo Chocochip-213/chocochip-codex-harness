@@ -66,18 +66,19 @@ ROW_LIST_NAMES = ("rows", "data", "items", "records", "results")
 
 
 def pick_rows(data, path):
-    """JSON 최상위가 객체면 그 안에서 '객체 목록'인 값을 고른다(행 목록 이름을 먼저, 없으면 처음 것)."""
+    """JSON 최상위가 객체면 그 안에서 '객체 목록'인 값을 고른다(행 목록 이름을 먼저, 없으면 객체만 든 목록, 섞인 목록, 빈 목록 순)."""
     if isinstance(data, list):
         return data
     if not isinstance(data, dict):
         die(f"{path}: 객체 목록이 아닙니다(최상위가 {type(data).__name__})")
-    full = [(k, v) for k, v in data.items() if isinstance(v, list) and v and all(isinstance(x, dict) for x in v)]
-    empty = [(k, v) for k, v in data.items() if isinstance(v, list) and not v]
-    cands = full or empty
+    cands = [(k, v) for k, v in data.items() if isinstance(v, list)
+             and (str(k).lower() in ROW_LIST_NAMES or not v or any(isinstance(x, dict) for x in v))]
     if not cands:
         die(f"{path}: 객체 목록을 찾지 못했습니다(최상위 키: {', '.join(map(str, data)) or '없음'})")
-    named = [c for c in cands if str(c[0]).lower() in ROW_LIST_NAMES]
-    key, rows = (named or cands)[0]
+    named = sorted((c for c in cands if str(c[0]).lower() in ROW_LIST_NAMES), key=lambda c: not c[1])
+    full = [c for c in cands if c[1] and all(isinstance(x, dict) for x in c[1])]
+    mixed = [c for c in cands if c[1] and c not in full]
+    key, rows = (named or full or mixed or cands)[0]
     others = [str(k) for k, _ in cands if k != key]
     print(f"({Path(path).name}: JSON의 '{key}' 목록을 읽음" + (f", 다른 목록: {', '.join(others)})" if others else ")"))
     return rows
@@ -101,7 +102,9 @@ def records(path):
             return list(reader.fieldnames or []), recs
     except (json.JSONDecodeError, csv.Error) as e:
         die(f"{path}: 읽지 못했습니다({type(e).__name__}: {e})")
-    recs = [r for r in recs if isinstance(r, dict)]
+    bad = [i for i, r in enumerate(recs, start=1) if not isinstance(r, dict)]
+    if bad:
+        die(f"{path}: 행 목록에 객체가 아닌 항목 {len(bad)}개(첫 위치 {bad[0]}번째, 행이 조용히 빠질 수 있어 멈춤)")
     names = []
     for r in recs:
         for k in r:

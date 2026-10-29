@@ -57,7 +57,7 @@ DATE_LIKE = re.compile(
     r"|\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}"                 # 10/03/2024
     r"|\d{1,2}:\d{2})"                                   # 14:05
 )
-YMD = re.compile(r"^(\d{4})\s*[-/.년]\s*(\d{1,2})\s*[-/.월]\s*(\d{1,2})\s*일?"
+YMD = re.compile(r"^(\d{4})\s*[-/.년]\s*(\d{1,2})\s*[-/.월]\s*(\d{1,2})(?:\s*일)?"
                  r"(?:[ T]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?")
 HM = re.compile(r"^(\d{1,2}):(\d{2})(?::(\d{2}))?$")
 COMPACT_DATE = re.compile(r"^(19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])([ T]?\d{4}(\d{2})?)?$")
@@ -99,15 +99,15 @@ def bad_date(s):
     try:
         if m:
             y, mo, d, h, mi, se = (int(x) if x else 0 for x in m.groups())
-            dt.datetime(y, mo, d, h, mi, se)
-            return False
-        m = HM.match(s)
-        if m:
+            dt.date(y, mo, d)  # 시각은 아래에서 시각만 있는 값과 같은 기준으로 본다
+        else:
+            m = HM.match(s)
+            if not m:
+                return False
             h, mi, se = (int(x) if x else 0 for x in m.groups())
-            return not (h <= 24 and mi <= 59 and se <= 59)
     except ValueError:
         return True
-    return False
+    return not ((h < 24 or (h == 24 and mi == 0 and se == 0)) and mi <= 59 and se <= 59)
 
 
 class Col:
