@@ -46,7 +46,7 @@ git clone --depth 1 https://github.com/Chocochip-213/chocochip-codex-harness /tm
 | `.harness/tools/env_check.py` | 파이썬·pip·PyPI 접속·이미 있는 패키지·포트·git·샌드박스 여부 |
 | `.harness/tools/profile_data.py` | CSV·TSV·JSON·JSONL·SQLite의 결측, 자리표시 값, 숫자 이상(음수·0·IQR 밖), 날짜 모양 섞임·없는 날짜, 표기 변형, 중복, 개인정보 모양 |
 | `.harness/tools/join_check.py` | 조인 전에 키 중복(행 불어남), 짝 없는 키(조용히 빠짐), 빈 키, 표기 흔들림 |
-| `.harness/tools/reconcile.py` | 들어온 행 = 쓴 + 뺀 + 따로 둔 행인지(같은 ID가 여러 번이면 그 횟수까지). 첫 줄에 요약. 결과 JSON의 rows 목록도 읽음. 종료 코드 0 일치, 1 불일치, 2 검사 0건, 3 실행 오류 |
+| `.harness/tools/reconcile.py` | 들어온 행 = 쓴 + 뺀 + 따로 둔 행인지(같은 ID가 여러 번이면 그 횟수까지). 첫 줄에 요약. 결과 JSON은 객체 목록이 하나일 때만 읽음. 종료 코드 0 일치, 1 불일치, 2 검사 0건, 3 실행 오류 |
 | `.harness/tools/precheck.py` | 제출 전 키 모양, TODO·FIXME, 이메일·휴대·유선 전화번호·등록번호 모양(값은 가려서 보임), 제출 문서의 /tmp 인용, 남은 검증 차이, 열지 못한 파일. .gitignore에 걸려 검사하지 않은 것도 이름을 보임. 종료 코드 0 없음, 1 있음, 3 실행 오류 |
 | `.harness/tools/selftest.sh` | 도구 자체 점검(임시 폴더) |
 | `.harness/vendor/chart.umd.min.js` | Chart.js 4.5.1(MIT). CDN 없이 차트 |

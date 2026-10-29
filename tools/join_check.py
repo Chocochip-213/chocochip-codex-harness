@@ -8,7 +8,7 @@
 보여 주는 것:
 - 왼쪽·오른쪽 행 수와 고유 키 수, 오른쪽 키 중복(합치면 왼쪽 행이 불어남)
 - 짝이 없는 왼쪽 행·오른쪽 키(그냥 합치면 조용히 빠짐)
-- 키가 빈 행(어느 쪽이든 조인에서 빠진다. 빈 키끼리는 맞추지 않는다)
+- 키가 비거나 일부 빈 행(어느 쪽이든 조인에서 빠진다. 빈 키끼리는 맞추지 않는다)
 - inner·left 조인 결과 행 수
 - 공백·대소문자·기호를 지우고 맞추면 더 맞는 키(표기 흔들림)
 개수는 전체를 세고 예시만 일부 보여 준다(--show 0이면 전부). 읽는 형식: .csv .tsv .json .jsonl
@@ -115,7 +115,7 @@ def key_of(r, cols):
 
 
 def is_empty(k):
-    return all(x == "" for x in k)
+    return any(x == "" for x in k)
 
 
 def norm(k):
@@ -174,7 +174,7 @@ def main():
 
     print(f"- 고유 키: 왼쪽 {len(lset)}개, 오른쪽 {len(rcount)}개")
     if l_empty or r_empty:
-        print(f"- 키가 빈 행: 왼쪽 {l_empty}개, 오른쪽 {r_empty}개(조인에서 짝을 찾지 않는다)")
+        print(f"- 키가 비거나 일부 빈 행: 왼쪽 {l_empty}개, 오른쪽 {r_empty}개(조인에서 짝을 찾지 않는다)")
     if dup:
         extra = sum(rcount[k] - 1 for k in matched if k in dup)
         print(f"- 오른쪽 키 중복 {len(dup)}개(합치면 왼쪽 행이 {extra}개 불어남): " +

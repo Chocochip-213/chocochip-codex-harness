@@ -115,7 +115,7 @@ class Col:
         self.name = name
         self.date_hint = date_hint
         self.key_like = key_like
-        self.pk_like = pk_like      # 첫 열이거나 이름이 id인 열: 중복이면 행 수와 상관없이 보인다
+        self.pk_like = pk_like      # 이름이 id인 열: 중복이면 행 수와 상관없이 보인다
         self.rrn = 0
         self.missing = 0
         self.filled = 0
@@ -311,7 +311,7 @@ def profile(title, header, rows, top, rowword, keys, extra=None):
     if spaced:
         print("  열 이름에 앞뒤 공백: " + ", ".join(repr(n) for n in spaced))
     cols = [Col(n, bool(DATE_NAME.search(n)), i == 0 or bool(ID_NAME.search(n.strip())),
-                pk_like=(i == 0 or n.strip().lower() == "id"))
+                pk_like=(n.strip().lower() == "id"))
             for i, n in enumerate(names)]
     stripped = [n.strip() for n in names]
     key_idx = []

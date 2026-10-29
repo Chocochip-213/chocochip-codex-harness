@@ -13,11 +13,11 @@
 | 중복·연쇄 이벤트 묶기 | 키·시각으로 정렬 → `itertools.groupby` + 간격 기준, 시작·종료는 키별 dict로 짝 맞춤, `sqlite3`의 `LAG()` | duckdb(ASOF JOIN) | 짝 없는 시작·종료는 따로 표로. duckdb는 `fetchall()`로 받는다(`.df()`는 pandas 필요) |
 | 조인 | dict로 합치기 | — | 합치기 전에 `join_check.py`로 키 중복(행 불어남)과 짝 없는 키(조용히 빠짐)를 본다 |
 | 그룹 비교(비율·평균) | n·평균·비율·차이 표 먼저, 두 비율 z검정은 `statistics.NormalDist`, 평균 차이는 순열검정 | scipy.stats | 표본 수를 같이 보인다 |
-| 기여 요인 찾기 | 요인 값별 (그 집단 불량률 − 전체 불량률) × 비중으로 정렬 | — | 근거 행 수를 같이 보인다 |
+| 원인 후보·기여 요인 | 요인 값별 n·지표 표. 변화의 원인이면 전후 기간을 나란히 두고 '집단 안 지표 변화'와 '집단 비중 변화'를 따로 본다 | — | 지금 집단 간 차이만으로 변화 원인이라 하지 않는다. 함께 바뀐 다른 요인은 하나씩 빼고 다시 본다. 표본 수를 같이 보인다 |
 | 이상치·추세 변화 | 중앙값·MAD 로버스트 z(3.5 초과), `statistics.quantiles` IQR, CUSUM | ruptures | 걸린 규칙 이름을 열로 남긴다 |
-| 배정·일정 | 마감·우선순위 `heapq` 그리디, 작은 경우 `itertools.permutations`로 최적과 비교 | `pulp==3.3.2`(반드시 버전 고정), scipy `optimize.milp` | PuLP 4.x는 문법이 다르고 numpy가 없으면 import가 실패한다 |
+| 배정·일정 | 마감·우선순위 `heapq` 그리디, 작은 경우 `itertools.permutations`로 최적과 비교 | `pulp==3.3.2`(반드시 버전 고정), scipy `optimize.milp` | README·담당자가 정한 '순서대로 채운다' 규칙이면 그 순서를 그대로 옮기고 최적화하지 않는다. '가장 많이·적게' 같은 목표가 있으면 자격·용량·시간 제약을 먼저 적고, 그리디와 permutations가 다르면 pulp. PuLP 4.x는 문법이 다르고 numpy가 없으면 import가 실패한다 |
 | 재고·안전재고 | `statistics.NormalDist().inv_cdf(서비스수준)` | — | 일수요 표준편차 × √리드타임. 과제 기준이 따로 있으면 그것을 따른다 |
-| 회귀 테스트(기존 코드 고치기) | `unittest` + 지금 출력을 골든 JSON으로 고정 + `difflib` | pytest | 고치기 전에 현재 출력부터 고정한다 |
+| 회귀 테스트(기존 코드 고치기) | `unittest` + 바꾸면 안 되는 동작만 지금 출력을 골든 JSON으로 고정 + `difflib` | pytest | 고칠 오류는 현재 출력을 기대값으로 삼지 않는다: 요구에서 기대값을 만들어 고치기 전 실패·고친 뒤 통과를 확인한다 |
 | 표·차트 | SVG 문자열, 또는 `.harness/vendor/chart.umd.min.js`를 static/에 복사 | — | 외부 CDN에 기대지 않는다(미리보기에서 막힐 수 있음) |
 | 한글 CSV 인코딩 | `utf-8-sig` → 안 되면 `cp949` | — | 어느 쪽으로 읽혔는지 출력한다 |
 | 엑셀 | `zipfile` + `xml.etree` | openpyxl(`read_only=True, data_only=True`) | 병합 셀·빈 헤더를 먼저 확인 |

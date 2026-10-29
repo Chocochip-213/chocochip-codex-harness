@@ -6,7 +6,7 @@
   python3 reconcile.py --input data/input.csv:id \\
       --part 쓴=out/kept.csv --part 뺀=out/dropped.csv --part 따로=out/review.csv
 
-  # 결과가 파일 하나이고 구분 열(예: status)로 나뉠 때(결과 JSON의 rows 목록도 읽는다)
+  # 결과가 파일 하나이고 구분 열(예: status)로 나뉠 때(결과 JSON은 객체 목록이 하나일 때만 읽는다)
   python3 reconcile.py --input data/input.csv:id --group out/result.json:id:판정
 
   # 여러 행을 하나로 묶어 ID를 한 칸에 적었을 때(예: "A1;A7;A9")
@@ -15,7 +15,9 @@
 - ID마다 '들어온 행 수 = 결과 쪽 행 수의 합'인지 본다. 같은 ID가 입력에 두 행이면 결과 쪽에도 두 행
   (예: 쓴 1 + 뺀 1)이어야 한다. 중복을 지웠다면 지운 행은 '뺀' 쪽에 적어야 맞는다.
 - 경로:열 에서 열 이름이 여럿이면 col1+col2 로 쓴다. --part의 열을 생략하면 --input과 같은 열을 쓴다.
-- 읽는 형식: .csv .tsv .json(객체 목록, 또는 객체 목록을 값으로 가진 객체) .jsonl, 그리고 ID만 한 줄에 하나씩 적은 .txt
+- 읽는 형식: .csv .tsv .json(객체 목록, 또는 객체 목록을 값으로 하나만 가진 객체) .jsonl, 그리고 ID만 한 줄에 하나씩 적은 .txt
+- 입력 한 행이 결과 여러 행이 되는 과제(여러 분류 붙이기, 구간 나누기)는 결과 쪽 ID를 중복 없이 한 줄씩 적은
+  .txt로 넘긴다(그때는 '있음'만 확인한다).
 - 종료 코드: 0 일치, 1 불일치, 2 검사 0건(입력이나 결과 쪽에서 ID를 하나도 못 읽음), 3 사용법·파일 오류.
 - 차이는 메우지 말고 '원인 미상 n건'으로 남긴다. 개수는 전체를 세고 예시만 일부 보여 준다(--show 0이면 전부).
 
@@ -78,14 +80,13 @@ def split_spec(spec, parts):
     return [path] + bits[len(bits) - (parts - 1):]
 
 
-ROW_LIST_NAMES = ("rows", "data", "items", "records", "results")
 NOTES = []  # 읽으면서 알릴 말. 요약 줄 다음에 찍는다
 PICKED = []  # JSON에서 고른 행 목록 이름. 요약 줄 끝에 붙인다
 SEP = "\x1f"  # 여러 열을 합친 키의 구분자(값 안의 '|'와 섞이지 않게). 보일 때만 '|'로 바꾼다
 
 
 def pick_rows(data, path):
-    """JSON 최상위가 객체면 그 안에서 '객체 목록'인 값을 고른다(행 목록 이름을 먼저, 없으면 처음 것)."""
+    """JSON 최상위가 객체면 '객체 목록'(빈 목록 포함)인 값이 정확히 하나일 때만 그것을 행으로 본다."""
     if isinstance(data, list):
         return data
     if not isinstance(data, dict):
@@ -93,19 +94,13 @@ def pick_rows(data, path):
     cands = [(k, v) for k, v in data.items() if isinstance(v, list) and (not v or any(isinstance(x, dict) for x in v))]
     if not cands:
         die(f"{path}: 객체 목록을 찾지 못했습니다(최상위 키: {', '.join(map(str, data)) or '없음'})")
-    named = sorted((c for c in cands if str(c[0]).lower() in ROW_LIST_NAMES),
-                   key=lambda c: ROW_LIST_NAMES.index(str(c[0]).lower()))
-    nonempty = [c for c in cands if c[1]]
-    if named:
-        key, rows = named[0]
-    elif len(nonempty) > 1:
-        die(f"{path}: 어느 목록이 행인지 정할 수 없습니다(객체 목록: {', '.join(str(k) for k, _ in nonempty)}). "
-            "행 목록을 rows로 이름 붙이거나 그 목록만 따로 저장한다")
-    else:
-        key, rows = (nonempty or cands)[0]
-    others = [str(k) for k, _ in cands if k != key]
+    if len(cands) > 1:
+        die(f"{path}: 객체 목록이 여럿이라 어느 것이 행인지 정하지 않습니다({', '.join(str(k) for k, _ in cands)}). "
+            "대조할 목록만 따로 저장한다: python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); "
+            "json.dump(d[sys.argv[2]], open(sys.argv[3], \"w\"))' <파일> <키> /tmp/rows.json")
+    key, rows = cands[0]
     PICKED.append(f"{Path(path).name}: '{key}'")
-    NOTES.append(f"({Path(path).name}: JSON의 '{key}' 목록을 읽음" + (f", 다른 목록: {', '.join(others)})" if others else ")"))
+    NOTES.append(f"({Path(path).name}: JSON의 '{key}' 목록을 읽음)")
     return rows
 
 

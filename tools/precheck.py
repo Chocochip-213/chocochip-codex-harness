@@ -8,9 +8,9 @@
 - 데이터 파일(csv·tsv·json·jsonl)의 개인정보 모양은 입력에 원래 있던 값일 수 있어 파일별 줄 수만 보인다.
   줄까지 보려면 --show-data. 키 모양·할 일 표시는 데이터 파일에서도 줄까지 보인다.
 - 제출 문서의 /tmp 인용: 하네스 설치 뒤 바뀐 .md(verify/·AGENTS.md 제외)에서 /tmp를 말하는 줄. 근거로 든 스크립트면
-  verify/로 옮기거나 문장을 고친다. 행 목록 같은 자료 사본 경로면 남겨도 된다.
-- 남은 검증 차이: verify/의 report·diff 번호 중 가장 큰 N의 diff_N.csv에 차이 줄이 있으면. 고쳤으면 verify 비교를
-  다시 해 diff·report를 지금 값으로 갱신한다. 고치지 않았으면 남긴 이유를 적는다.
+  커밋된 곳(verify/ 등)으로 옮기거나 문장을 고친다. 행 목록 같은 자료 사본 경로면 남겨도 된다.
+- 남은 검증 차이: verify/diff_N.csv에 차이 줄이 있으면(번호마다). 고쳤으면 verify 비교를 다시 해 diff·report를
+  지금 값으로 갱신한다. 나중 검증에서 같아졌거나 고치지 않았으면 남긴 이유를 적는다.
 - 열지 못한 파일(권한 등)도 찾은 것으로 센다. 지워진 파일은 건너뛴다.
 - 찾은 값은 가려서 보인다(전체 값을 화면과 로그에 내지 않는다). 맨 앞 줄에 종류별 건수를 먼저 보인다.
 - 종료 코드: 0 찾은 것 없음, 1 찾은 것 있음, 3 실행 오류.
@@ -61,7 +61,6 @@ CATEGORIES = [
 PII = {"email", "phone", "landline", "rrn"}
 TMP_REF = re.compile(r"(?<![\w.])/tmp(?![\w-])")
 DIFF_NAME = re.compile(r"^verify/diff_(\d+)\.csv$")
-REPORT_NAME = re.compile(r"^verify/report_(\d+)\.md$")
 FILE_CHECKS = [("tmp", "제출 문서의 /tmp 인용"), ("diff", "남은 검증 차이"), ("unread", "열지 못한 파일")]
 MASKS = [
     (re.compile(EMAIL), "<이메일>"),
@@ -193,10 +192,9 @@ def file_checks(files):
         for lineno, line in enumerate(text.splitlines(), 1):
             if TMP_REF.search(line):
                 out["tmp"].append(f"{name}:{lineno}  {mask_line(line, key_spans(line))}")
-    diffs = {int(m.group(1)): n for n in files for m in [DIFF_NAME.match(n)] if m}
-    nums = set(diffs) | {int(m.group(1)) for n in files for m in [REPORT_NAME.match(n)] if m}
-    if nums and max(nums) in diffs:
-        name = diffs[max(nums)]
+    for name in files:
+        if not DIFF_NAME.match(name):
+            continue
         try:
             rows = [ln for ln in Path(name).read_text(encoding="utf-8", errors="replace").splitlines()[1:] if ln.strip()]
         except OSError:
@@ -207,8 +205,8 @@ def file_checks(files):
 
 
 FILE_GUIDE = {
-    "tmp": "근거로 든 스크립트면 verify/로 옮기거나 문장을 고친다. 행 목록 같은 자료 사본 경로면 남겨도 된다",
-    "diff": "고쳤으면 verify 비교를 다시 해 diff·report를 지금 값으로 갱신한다. 고치지 않았으면 남긴 이유를 적는다",
+    "tmp": "근거로 든 스크립트면 커밋된 곳(verify/ 등)으로 옮기거나 문장을 고친다. 행 목록 같은 자료 사본 경로면 남겨도 된다",
+    "diff": "고쳤으면 verify 비교를 다시 해 diff·report를 지금 값으로 갱신한다. 나중 검증에서 같아졌거나 고치지 않았으면 남긴 이유를 적는다",
     "unread": "검사하지 못했다. 권한을 확인하거나 남긴 이유를 적는다",
 }
 
