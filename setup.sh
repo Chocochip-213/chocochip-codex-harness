@@ -170,7 +170,7 @@ else
 fi
 size="$(wc -c < "$DST/AGENTS.md" | tr -d ' ')"
 if [ "$size" -gt 32000 ]; then
-  agents_msg="$agents_msg 주의: AGENTS.md가 ${size}바이트라 Codex가 32KiB 넘는 뒷부분(하네스 규칙)을 잘라 읽을 수 있습니다. \$kickoff로 시작하면 스킬이 AGENTS.md를 직접 읽습니다."
+  agents_msg="$agents_msg 주의: AGENTS.md가 ${size}바이트라 Codex가 32KiB 넘는 뒷부분(하네스 규칙)을 잘라 읽을 수 있습니다. \$kickoff 전에 'AGENTS.md에서 ${MARK} 줄 아래를 직접 읽고 따라 줘'라고 먼저 말하세요."
 fi
 rm -f "$H/INSTALLING"
 
