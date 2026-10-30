@@ -16,6 +16,7 @@ Codex CLI로 과제를 풀 때 쓰는 개인 작업 도구 모음입니다.
 Bash, Git, Python 3, Codex CLI가 있는 환경에서 씁니다.
 **과제 작업 폴더 맨 위**로 이동한 뒤, Codex를 켜기 전에 터미널에서 실행합니다.
 설치기는 하네스 파일을 바로 커밋합니다. 먼저 `git status --short`로 `AGENTS.md`·`.agents/`·`.harness/`·`.codex/`에 커밋하지 않은 변경이 없는지 보고, 있으면 먼저 커밋하거나 정리합니다.
+홈 폴더가 곧 과제 저장소이면 `.codex/`와 점 파일은 커밋하지 않습니다(Codex 기록·인증·키가 들어 있고, 설치기가 git에서 뺍니다).
 
 ```bash
 git clone --depth 1 https://github.com/Chocochip-213/chocochip-codex-harness /tmp/h && bash /tmp/h/setup.sh
@@ -61,7 +62,7 @@ bash /tmp/h/setup.sh
 - 과제의 `.codex/config.toml`은 보존합니다. 파일이 없으면 새로 넣고, 하네스 주석(`# chocochip-codex-harness`)이 있는 파일만 새 내용으로 바꿉니다.
 - 과제의 `commit-msg` 훅이나 `core.hooksPath` 설정이 있으면 하네스 훅을 넣지 않습니다.
 - 같은 폴더 이름의 과제 스킬이 있으면 멈춥니다. `.harness/`가 이미 있는데 비어 있지도 않고 하네스가 만든 표시 파일(`.harness/SOURCE.txt`·`.harness/INSTALLING`)도 없으면 멈춥니다. 빈 `.harness/`에는 설치할 수 있습니다.
-- 홈 폴더, `/`, 하네스 저장소 자체나 그 안에는 설치하지 않습니다.
+- `/`, 하네스 저장소 자체나 그 안에는 설치하지 않습니다. 홈 폴더에는 그 자체가 과제 git 저장소의 맨 위일 때만 설치하고, 이때 맨 위의 점 파일·폴더(셸 설정, 캐시, Codex 기록, 키 파일)를 이 저장소의 `.git/info/exclude`에 넣어 git에서 뺍니다(`.gitignore`·`.gitattributes`·`.github/`·`.streamlit/`은 빼지 않습니다).
 
 과제의 다른 스킬 폴더가 `SKILL.md`에서 같은 `name:`을 쓰면 경고만 합니다.
 이때는 `.agents/skills/kickoff/SKILL.md를 읽고 그대로 해 줘`처럼 경로로 부릅니다.

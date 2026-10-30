@@ -117,8 +117,20 @@ def walk(top="."):
     return names
 
 
+def at_home():
+    try:
+        return Path.cwd().resolve() == Path.home().resolve()
+    except (RuntimeError, OSError):
+        return False
+
+
 def is_heavy_dir(entry):
-    return entry.endswith("/") and Path(entry.rstrip("/")).name in WALK_SKIP_DIRS
+    if not entry.endswith("/"):
+        return False
+    # 홈 폴더가 과제 저장소이면 맨 위 점 폴더(셸·패키지·Codex 설정과 캐시)도 걷지 않는다
+    if entry.startswith(".") and "/" not in entry.rstrip("/") and at_home():
+        return True
+    return Path(entry.rstrip("/")).name in WALK_SKIP_DIRS
 
 
 def list_files(excludes, include_ignored):

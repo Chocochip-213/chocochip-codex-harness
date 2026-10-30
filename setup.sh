@@ -16,8 +16,14 @@ trap 'rm -f "$ERR"' EXIT
 first_err() { head -n 1 "$ERR" | sed -E 's/[.[:space:]]+$//'; }
 
 HOME_P="$(cd "${HOME:-/}" 2>/dev/null && pwd -P || echo /)"
-if [ "$DST" = "/" ] || [ "$DST" = "$HOME_P" ]; then
-  echo "홈 폴더나 / 에는 설치하지 않습니다. 과제 작업 폴더로 cd 한 뒤 실행하세요." >&2
+# 홈 폴더는 그 자체가 과제 git 저장소의 맨 위일 때만 설치한다(작업 폴더가 곧 홈인 환경)
+home_repo=0
+if [ "$DST" = "$HOME_P" ] && top_h="$(git -C "$DST" rev-parse --show-toplevel 2>/dev/null)" \
+    && [ "$(cd "$top_h" && pwd -P)" = "$DST" ]; then
+  home_repo=1
+fi
+if [ "$DST" = "/" ] || { [ "$DST" = "$HOME_P" ] && [ "$home_repo" -eq 0 ]; }; then
+  echo "홈 폴더나 / 에는 설치하지 않습니다(홈 폴더가 과제 git 저장소의 맨 위이면 설치합니다). 과제 작업 폴더로 cd 한 뒤 실행하세요." >&2
   exit 1
 fi
 if [ "$SRC" = "$DST" ]; then
@@ -112,13 +118,18 @@ if [ ! -e "$CFG" ] || grep -qF "# chocochip-codex-harness" "$CFG"; then
 else
   cfg_msg="추론 강도: 과제의 .codex/config.toml이 있어 넣지 않았습니다. /plan 전에 /model에서 high를 고르세요"
 fi
+# 홈 폴더가 과제 저장소이면 .codex는 Codex 자체 폴더(대화 기록·인증)라 커밋하지 않는다(규칙·설정 파일은 그대로 깔린다)
+[ "$home_repo" -eq 1 ] && paths=(AGENTS.md .agents .harness)
 
 # 키 파일과 사용자용 설명 노트(EXPLAIN.md)가 git add로 섞여 들어가지 않게 이 저장소에서만 제외한다(.gitignore는 건드리지 않는다)
 hook_msg="커밋 형식 훅: git 저장소가 아니라 넣지 않았습니다"
 if gd="$(git -C "$DST" rev-parse --absolute-git-dir 2>/dev/null)"; then
   ex="$gd/info/exclude"
   mkdir -p "$gd/info" 2>/dev/null
-  for pat in "# chocochip-codex-harness" ".env" ".env.*" ".ai_env" "__pycache__/" "*.pyc" "EXPLAIN.md"; do
+  pats=("# chocochip-codex-harness" ".env" ".env.*" ".ai_env" "__pycache__/" "*.pyc" "EXPLAIN.md")
+  # 홈 폴더가 과제 저장소이면 맨 위의 점 파일·폴더(셸 설정, 캐시, Codex 기록, 키 파일)를 git에서 뺀다. 과제에 흔한 점 파일은 다시 넣는다
+  [ "$home_repo" -eq 1 ] && pats+=("/.*" "!/.gitignore" "!/.gitattributes" "!/.github/" "!/.streamlit/")
+  for pat in "${pats[@]}"; do
     grep -qxF -- "$pat" "$ex" 2>/dev/null || printf '%s\n' "$pat" >> "$ex" 2>/dev/null || true
   done
   # 커밋 메시지 형식(타입(범위): 한국어 요약)을 검사하는 훅. 과제가 훅을 따로 쓰면 건드리지 않는다
