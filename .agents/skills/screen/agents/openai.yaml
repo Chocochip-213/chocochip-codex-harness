@@ -1,0 +1,5 @@
+interface:
+  display_name: "screen"
+  short_description: "디자인 계획, 배치, 표·폼·상태 표시, 그래프 가독성"
+policy:
+  allow_implicit_invocation: false

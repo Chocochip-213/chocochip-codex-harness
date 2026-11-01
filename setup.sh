@@ -237,6 +237,8 @@ cat <<EOF
     \$verify    핵심 결과가 갖춰진 중간 점검(그 뒤 코드·데이터가 바뀌면 제출 전 한 번 더). 새 에이전트가 따로 계산, 행 대조, curl
     \$wrapup    마감할 때. 요건 대조, 새 에이전트 검토, 제출 문서, 키·개인정보 점검
     \$weakness  \$wrapup 뒤. 남은 약점, 한 화면 요약, 설명 점검
+    \$screen    화면을 만들거나 고칠 때(AGENTS.md가 읽게 함). 디자인 계획·배치·표·폼·상태 표시·그래프 가독성
+    \$criteria  정해지지 않은 기준(기준값·점수·우선순위 등)을 기준선과 다른 계열 후보 비교로 정하기
 - 도구: .harness/tools/ (env_check, profile_data, join_check, reconcile, precheck, selftest.sh)
 - 금지 규칙: .codex/rules/chocochip-codex-harness.rules (git push·원격 추가·gh·--no-verify 커밋을 막음. 커밋은 승인 창에서 y)
 - $cfg_msg

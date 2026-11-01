@@ -1,0 +1,5 @@
+interface:
+  display_name: "criteria"
+  short_description: "정해지지 않은 기준을 기준선과 다른 계열 후보 비교로 정하기"
+policy:
+  allow_implicit_invocation: false
