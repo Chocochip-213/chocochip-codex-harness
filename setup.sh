@@ -129,6 +129,8 @@ if gd="$(git -C "$DST" rev-parse --absolute-git-dir 2>/dev/null)"; then
   pats=("# chocochip-codex-harness" ".env" ".env.*" ".ai_env" "__pycache__/" "*.pyc" "EXPLAIN.md")
   # 홈 폴더가 과제 저장소이면 맨 위의 점 파일·폴더(셸 설정, 캐시, Codex 기록, 키 파일)를 git에서 뺀다. 과제에 흔한 점 파일은 다시 넣는다
   [ "$home_repo" -eq 1 ] && pats+=("/.*" "!/.gitignore" "!/.gitattributes" "!/.github/" "!/.streamlit/")
+  # 키 없는 예시 설정(.env.example)은 제출물일 수 있어 위 제외에서 다시 넣는다
+  pats+=("!.env.example")
   for pat in "${pats[@]}"; do
     grep -qxF -- "$pat" "$ex" 2>/dev/null || printf '%s\n' "$pat" >> "$ex" 2>/dev/null || true
   done

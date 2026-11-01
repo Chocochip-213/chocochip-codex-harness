@@ -20,6 +20,7 @@ ok "AGENTS.md 맨 앞 표시" "head -1 AGENTS.md | grep -qxF '<!-- chocochip-cod
 ok "규칙 파일 설치" "[ -f .codex/rules/chocochip-codex-harness.rules ]"
 ok "추론 강도 설정(평소 medium, /plan high)" "grep -qx 'plan_mode_reasoning_effort = \"high\"' .codex/config.toml && git ls-files --error-unmatch .codex/config.toml >/dev/null"
 ok "exclude에 .ai_env·EXPLAIN.md" "grep -qx .ai_env .git/info/exclude && grep -qx EXPLAIN.md .git/info/exclude"
+ok ".env는 빼고 .env.example은 남김" "touch .env .env.example; git check-ignore -q .env && ! git check-ignore -q .env.example; r=\$?; rm -f .env .env.example; [ \$r -eq 0 ]"
 ok "하네스 커밋 1개, 작업 트리 깨끗" "[ \$(git log --oneline | wc -l) -eq 2 ] && [ -z \"\$(git status --porcelain)\" ]"
 ok "하네스 커밋도 형식에 맞음" "git log -1 --format=%s | grep -q '^chore(harness): 작업 도구 추가'"
 ok "커밋 형식 훅 설치" "[ -x .git/hooks/commit-msg ]"
@@ -36,6 +37,9 @@ ok "다시 설치해도 exclude 줄 중복 없음" "[ \$(grep -cx .ai_env .git/i
 mk "$T/b"; printf '# 과제 규칙\n- 테스트는 pytest\n' > AGENTS.md; git add AGENTS.md; commit -m agents
 run; run
 ok "과제 AGENTS.md 보존, 두 번 설치해도 한 번만" "head -1 AGENTS.md | grep -q '과제 규칙' && grep -q pytest AGENTS.md && [ \$(grep -cxF '<!-- chocochip-codex-harness -->' AGENTS.md) -eq 1 ]"
+
+mk "$T/hm"; HOME="$T/hm" run; r=$?
+ok "홈 저장소 설치: 셸 설정·.env는 빼고 .env.example은 남김" "[ $r -eq 0 ] && touch .bashrc .env .env.example && git check-ignore -q .bashrc && git check-ignore -q .env && ! git check-ignore -q .env.example"
 
 mk "$T/g"; mkdir .codex; echo 'model = "x"' > .codex/config.toml; git add .codex; commit -m cfg; run
 ok "과제의 .codex/config.toml은 그대로" "[ \"\$(cat .codex/config.toml)\" = 'model = \"x\"' ] && [ -z \"\$(git status --porcelain)\" ]"

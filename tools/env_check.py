@@ -68,7 +68,7 @@ def main():
     line("시간대", tz)
     from datetime import datetime
     try:
-        datetime.fromisoformat("2026-10-31T01:00:00Z")
+        datetime.fromisoformat("2026-01-01T01:00:00Z")
         iso = "fromisoformat이 'Z'를 읽음"
     except ValueError:
         iso = "fromisoformat이 'Z'를 못 읽음 — 'Z'를 '+00:00'으로 바꿔 읽기"
