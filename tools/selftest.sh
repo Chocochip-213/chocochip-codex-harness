@@ -30,10 +30,12 @@ exit_is() {
   [ $? -eq "$want" ]
 }
 check "env_check 실행" python3 "$TOOLS/env_check.py"
+check "ui_check 도움말(Playwright 없이도 종료 0)" python3 "$TOOLS/ui_check.py" --help
 check "profile_data 실행" python3 "$TOOLS/profile_data.py" "$S"
 check "profile_data가 자리표시·없는 날짜를 찾음" bash -c "python3 '$TOOLS/profile_data.py' '$S/values.csv' | grep -q '자리표시로 보이는 값' && python3 '$TOOLS/profile_data.py' '$S/values.csv' | grep -q '없는 날짜'"
 check "profile_data가 24:00:00은 받고 24:59:59는 없는 시각으로 봄" bash -c "printf 'id,t\n1,24:00:00\n2,24:59:59\n' > '$T/t24.csv'; python3 '$TOOLS/profile_data.py' '$T/t24.csv' | grep -q '없는 날짜·시각 1개: 행 3 '"
 check "profile_data가 날짜 뒤 공백으로 이어진 시각도 검사" bash -c "printf 'id,at\n1,2024-10-03 99:99:99\n2,2024-10-03 12:30\n3,2024-10-03T12:30:00\n4,2024-10-03\n5,2024년 10월 3일 12:30\n' > '$T/ymd.csv'; python3 '$TOOLS/profile_data.py' '$T/ymd.csv' | grep -q '없는 날짜·시각 1개: 행 2 '"
+check "profile_data: 소수 뒤 숫자는 등록번호로 안 보고 Tel. 뒤 전화번호는 봄" bash -c "printf 'amt,memo\n123.9001011234567,Tel.010-1234-5678\n45.5,x\n' > '$T/pii.csv'; python3 '$TOOLS/profile_data.py' '$T/pii.csv' > '$T/pii.txt'; grep -q '숫자 45.5~123.9' '$T/pii.txt' && grep -q '전화번호 1개' '$T/pii.txt'"
 check "reconcile 일치 → 종료 0" exit_is 0 python3 "$TOOLS/reconcile.py" --input "$S/values.csv:id" --part 쓴="$S/out_used.csv" --part 뺀="$S/out_excluded.csv"
 check "reconcile 첫 줄이 요약" bash -c "python3 '$TOOLS/reconcile.py' --input '$S/values.csv:id' --part 쓴='$S/out_used.csv' --part 뺀='$S/out_excluded.csv' | head -1 | grep -q '^요약: 종료 0'"
 check "reconcile 불일치 → 종료 1" exit_is 1 python3 "$TOOLS/reconcile.py" --input "$S/values.csv:id" --part 쓴="$S/out_used.csv"
@@ -41,6 +43,7 @@ check "reconcile 검사 0건 → 종료 2" exit_is 2 python3 "$TOOLS/reconcile.p
 check "reconcile 결과의 행 목록이 비면 검사 0건 → 종료 2" bash -c "printf '{\"rows\":[]}' > '$T/rows0.json'; python3 '$TOOLS/reconcile.py' --input '$S/values.csv:id' --group '$T/rows0.json:id:s' > /dev/null; [ \$? -eq 2 ] && python3 '$TOOLS/reconcile.py' --input '$S/values.csv:id' --part 따로='$T/rows0.json:id' > /dev/null; [ \$? -eq 2 ]"
 check "reconcile 열 없는 행([{}])은 실행 오류 → 종료 3" bash -c "printf '[{}]' > '$T/rows1.json'; python3 '$TOOLS/reconcile.py' --input '$S/values.csv:id' --part 쓴='$T/rows1.json:id' > /dev/null; [ \$? -eq 3 ]"
 check "reconcile 결과 JSON에 객체 목록이 여럿이면 실행 오류 → 종료 3" bash -c "printf '{\"rows\":[{\"id\":\"x\"}],\"results\":[]}' > '$T/rows2.json'; python3 '$TOOLS/reconcile.py' --input '$S/values.csv:id' --part 쓴='$T/rows2.json:id' > /dev/null; [ \$? -eq 3 ]"
+check "reconcile 앞뒤 공백만 다른 ID는 같게 보지 않고(종료 1) 따로 알림" bash -c "printf 'id\nA1\nB2\n' > '$T/ws_in.csv'; printf 'id\n A1\nB2\n' > '$T/ws_out.csv'; python3 '$TOOLS/reconcile.py' --input '$T/ws_in.csv:id' --part 쓴='$T/ws_out.csv' > '$T/ws.txt'; [ \$? -eq 1 ] && grep -q '앞뒤 공백만 다른 ID 1개' '$T/ws.txt'"
 check "join_check 실행" python3 "$TOOLS/join_check.py" --left "$S/orders.csv:customer_id" --right "$S/customers.csv:customer_id"
 check "join_check가 키 중복·표기 흔들림을 찾음" bash -c "python3 '$TOOLS/join_check.py' --left '$S/orders.csv:customer_id' --right '$S/customers.csv:customer_id' | grep -q '오른쪽 키 중복' && python3 '$TOOLS/join_check.py' --left '$S/orders.csv:customer_id' --right '$S/customers.csv:customer_id' | grep -q '표기 흔들림'"
 check "join_check 빈 목록([])은 검사 0건 → 종료 2, 다른 쪽 열 이름이 틀리면 종료 3" bash -c "printf '[]' > '$T/empty.json'; python3 '$TOOLS/join_check.py' --left '$T/empty.json:customer_id' --right '$S/customers.csv:customer_id' > /dev/null; [ \$? -eq 2 ] && python3 '$TOOLS/join_check.py' --left '$T/empty.json:customer_id' --right '$S/customers.csv:no_such_col' > /dev/null 2>&1; [ \$? -eq 3 ]"

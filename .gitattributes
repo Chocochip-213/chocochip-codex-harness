@@ -6,3 +6,8 @@
 vendor/** -diff linguist-vendored
 *.rules text eol=lf
 *.pdf binary
+*.ttf binary
+*.so binary
+*.so.* binary
+*.tar.bz2 binary
+*.tar.xz binary

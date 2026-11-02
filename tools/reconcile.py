@@ -17,8 +17,9 @@
 - 경로:열 에서 열 이름이 여럿이면 col1+col2 로 쓴다. --part의 열을 생략하면 --input과 같은 열을 쓴다.
 - 읽는 형식: .csv .tsv .json(객체 목록, 또는 객체 목록을 값으로 하나만 가진 객체) .jsonl, 그리고 ID만 한 줄에 하나씩 적은 .txt
 - 입력 한 행이 결과 여러 행이 되는 과제(여러 분류 붙이기, 구간 나누기)는 결과 쪽 ID를 중복 없이 한 줄씩 적은
-  .txt로 넘긴다(그때는 '있음'만 확인한다).
+  .txt로 넘긴다(입력에 같은 ID가 한 행씩일 때만 맞다. 입력에 같은 ID가 여러 행이면 행 번호를 붙인 임시 ID로 양쪽 목록을 만든다).
 - 종료 코드: 0 일치, 1 불일치, 2 검사 0건(입력이나 결과 쪽에서 ID를 하나도 못 읽음), 3 사용법·파일 오류.
+- ID는 앞뒤 공백도 지우지 않고 그대로 맞춘다(공백만 다른 ID는 따로 알린다. 같은 대상으로 볼지는 담당자 기준).
 - 차이는 메우지 말고 '원인 미상 n건'으로 남긴다. 개수는 전체를 세고 예시만 일부 보여 준다(--show 0이면 전부).
 
 보고:
@@ -41,8 +42,8 @@ if hasattr(signal, "SIGPIPE"):  # 출력을 head 등으로 자를 때 오류 없
 ENCODINGS = ("utf-8-sig", "cp949")
 csv.field_size_limit(2**31 - 1)
 EMAIL = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
-PHONE = re.compile(r"(?<!\d)(01[016789]|0\d{1,2})[-. ]?\d{3,4}[-. ]?\d{4}(?!\d)")
-RRN = re.compile(r"(?<!\d)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])-?[1-8]\d{6}(?!\d)")  # 주민·외국인등록번호 모양
+PHONE = re.compile(r"(?<![\d+])(?<!\d\.)(\+82[-. ]?\(?0?\)?|0)(1[016789]|\d{1,2})[-. ]?\d{3,4}[-. ]?\d{4}(?!\d)")  # 국제 형식(+82)도. 소수점 뒤 숫자는 아님
+RRN = re.compile(r"(?<!\d)(?<!\d\.)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])-?[1-8]\d{6}(?!\d)")  # 주민·외국인등록번호 모양
 
 
 def die(msg):
@@ -68,7 +69,7 @@ def read_text(path):
             return raw.decode(enc)
         except UnicodeDecodeError:
             pass
-    return raw.decode("utf-8", errors="replace")
+    die(f"{path}: UTF-8·CP949로 읽지 못했습니다(글자를 바꿔 읽으면 다른 ID가 같아질 수 있어 멈춤)")
 
 
 def split_spec(spec, parts):
@@ -104,8 +105,8 @@ def pick_rows(data, path):
     return rows
 
 
-def records(path):
-    """(열 이름 목록, dict 목록)"""
+def records(path, used=()):
+    """(열 이름 목록, dict 목록). used: 대조에 쓰는 열(CSV에서 이 열 이름이 겹치면 멈춘다)"""
     p = Path(path)
     if not p.is_file():
         die(f"없는 파일: {path}")
@@ -117,9 +118,20 @@ def records(path):
         elif ext == ".json":
             recs = pick_rows(json.loads(text), path)
         else:
-            reader = csv.DictReader(io.StringIO(text, newline=""), delimiter="\t" if ext == ".tsv" else ",")
+            if ext == ".tsv":
+                delim = "\t"
+            else:
+                try:  # profile_data와 같은 판별
+                    delim = csv.Sniffer().sniff(text[:8192], delimiters=",\t;|").delimiter
+                except csv.Error:
+                    delim = ","
+            reader = csv.DictReader(io.StringIO(text, newline=""), delimiter=delim)
             recs = list(reader)
-            return list(reader.fieldnames or []), recs
+            names = list(reader.fieldnames or [])
+            dup = sorted({n for n in used if names.count(n) > 1})
+            if dup:
+                die(f"{path}: 대조에 쓰는 열과 이름이 같은 열 {dup}(앞 열이 조용히 버려져 멈춤)")
+            return names, recs
     except (json.JSONDecodeError, csv.Error) as e:
         die(f"{path}: 읽지 못했습니다({type(e).__name__}: {e})")
     bad = sum(1 for r in recs if not isinstance(r, dict))
@@ -139,7 +151,7 @@ def cell(r, cols):
         v = r.get(c)
         if isinstance(v, (list, tuple)):
             v = ";".join(str(x) for x in v)
-        vals.append("" if v is None else str(v).strip())
+        vals.append("" if v is None else str(v))  # 공백도 지우지 않는다
     return SEP.join(vals)
 
 
@@ -148,18 +160,18 @@ def keys_of(path, key, sep=None):
     if Path(path).suffix.lower() == ".txt" or key is None:
         if not Path(path).is_file():
             die(f"없는 파일: {path}")
-        return [ln.strip() for ln in read_text(path).splitlines() if ln.strip()], 0
-    names, recs = records(path)
+        return [ln for ln in read_text(path).splitlines() if ln.strip()], 0
     cols = key.split("+")
+    names, recs = records(path, cols)
     missing = [c for c in cols if c not in names]
     if missing and (names or recs):  # 열 이름도 행도 없으면(빈 목록) 검사 0건으로 넘긴다
         die(f"{path}: 열이 없습니다: {missing}. 있는 열: {names}")
     ids, empty = [], 0
     for r in recs:
         v = cell(r, cols)
-        parts = [x.strip() for x in v.split(sep)] if sep else [v]
+        parts = v.split(sep) if sep else [v]  # 구분자 옆 공백도 ID로 둔다
         for x in parts:
-            if x.replace(SEP, "") == "":
+            if x.replace(SEP, "").strip() == "":
                 empty += 1
             else:
                 ids.append(x)
@@ -201,7 +213,7 @@ def main():
         p, k, g = split_spec(spec, 3)
         if not k or not g:
             ap.error(f"--group 형식은 경로:ID열:구분열 입니다: {spec}")
-        names, recs = records(p)
+        names, recs = records(p, k.split("+") + [g])
         for c in k.split("+") + [g]:
             if (names or recs) and c not in names:
                 die(f"{p}: 열이 없습니다: {c}. 있는 열: {names}")
@@ -210,12 +222,12 @@ def main():
             label = str(r.get(g) if r.get(g) is not None else "").strip() or "(구분 없음)"
             ids, empty = buckets.setdefault(label, ([], [0]))
             v = cell(r, k.split("+"))
-            if v.replace(SEP, "") == "":
+            if v.replace(SEP, "").strip() == "":
                 empty[0] += 1
             else:
                 ids.append(v)
         for label, (ids, empty) in buckets.items():
-            parts.append((f"{g}={label}", ids, empty[0]))
+            parts.append((f"{g}={mask(label)}", ids, empty[0]))
 
     if not inp or not any(ids for _, ids, _ in parts):
         print("요약: 종료 2, 검사 0건(통과 아님)")
@@ -235,6 +247,10 @@ def main():
     out_rows = sum(len(ids) for _, ids, _ in parts)
     out_empty = sum(e for _, _, e in parts)
 
+    def shown_id(x):  # 칸 앞뒤 공백이 있으면 따옴표로 보여 무엇이 다른지 보이게
+        x = str(x)
+        return "|".join(repr(p) if p != p.strip() else p for p in x.split(SEP))
+
     lost, short, extra, more = [], [], [], []
     for x in sorted(set(cin) | set(cout)):
         i, o = cin.get(x, 0), cout.get(x, 0)
@@ -242,13 +258,13 @@ def main():
             continue
         where = "·".join(f"{n}{c[x]}" for n, c in cparts if c.get(x))
         if o == 0:
-            lost.append(f"{x}(입력 {i}행)")
+            lost.append(f"{shown_id(x)}(입력 {i}행)")
         elif i == 0:
-            extra.append(f"{x}({where})")
+            extra.append(f"{shown_id(x)}({where})")
         elif o < i:
-            short.append(f"{x}(입력 {i}행, 결과 {o}행: {where})")
+            short.append(f"{shown_id(x)}(입력 {i}행, 결과 {o}행: {where})")
         else:
-            more.append(f"{x}(입력 {i}행, 결과 {o}행: {where})")
+            more.append(f"{shown_id(x)}(입력 {i}행, 결과 {o}행: {where})")
     empty_bad = in_empty != out_empty
     in_rows = len(inp) + in_empty
     parts_str = " + ".join(f"{n} {len(ids)}" for n, ids, _ in parts) + (f" + ID가 빈 행 {out_empty}" if out_empty else "")
@@ -271,7 +287,8 @@ def main():
 
     if not n_bad:
         print("일치: 모든 ID가 들어온 행 수만큼 결과 쪽에 있습니다." +
-              (f" (ID가 빈 행 {in_empty}개는 개수로만 맞췄습니다)" if in_empty else ""))
+              (f" (ID가 빈 행 {in_empty}개는 개수로만 맞췄습니다)" if in_empty else "") +
+              (f" (같은 ID가 여러 행인 ID {len(dup_in)}개는 ID별 행 수까지만 맞췄습니다. 어느 행인지 보려면 행 번호를 붙인 임시 ID로 다시 대조한다)" if dup_in else ""))
         return 0
     print(f"불일치: 원인 미상 {n_bad}건. 원인을 확인하기 전에는 메우지 않는다.")
     if lost:
@@ -284,6 +301,11 @@ def main():
         print(f"- 결과 쪽 행이 더 많은 ID {len(more)}개(같은 행이 두 번 쓰였거나 두 곳에 들어감): " + ex(more))
     if empty_bad:
         print(f"- ID가 빈 행: 입력 {in_empty}개, 결과 쪽 {out_empty}개")
+    def trim(k):  # 칸마다 앞뒤 공백만 지운 모양(칸 위치는 그대로)
+        return SEP.join(p.strip() for p in k.split(SEP))
+    ws = sorted({trim(x) for x in cin if cin[x] > cout.get(x, 0)} & {trim(x) for x in cout if cout[x] > cin.get(x, 0)})
+    if ws:
+        print(f"- 앞뒤 공백만 다른 ID {len(ws)}개(같은 대상으로 볼지는 AGENTS.md대로 가른다. 정한 규칙으로 맞춘 목록을 다시 만들어 대조): " + ex(ws))
     return 1
 
 

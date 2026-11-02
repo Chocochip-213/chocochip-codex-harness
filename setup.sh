@@ -99,27 +99,27 @@ for d in tools vendor; do
   cp -R "$SRC/$d" "$H/$d"
 done
 find "$H" -name __pycache__ -prune -exec rm -rf {} +
+# 화면 점검용 글꼴·예비 라이브러리(약 16MB)는 과제 저장소 커밋에 넣지 않고 사용자 캐시에 둔다(ui_check가 그 자리를 찾는다)
+if [ -d "$H/vendor/ui_check" ]; then
+  { mkdir -p "$HOME/.cache/ui_check" && rm -rf "$HOME/.cache/ui_check/bundle" && mv "$H/vendor/ui_check" "$HOME/.cache/ui_check/bundle"; } 2>/dev/null \
+    || { rm -rf "${H:?}/vendor/ui_check"; echo "주의: 화면 점검용 동봉 파일을 ~/.cache/ui_check에 두지 못했습니다(ui_check는 apt로 받습니다)" >&2; }
+fi
 cp "$SRC/playbook/cheatsheet.md" "$H/cheatsheet.md"
 cp "$SRC/playbook/LIBS.md" "$H/LIBS.md"
+cp "$SRC/LICENSE" "$H/LICENSE"
 for name in "${skills[@]}"; do
   rm -rf "$DST/.agents/skills/${name:?}"
   cp -R "$SRC/.agents/skills/$name" "$DST/.agents/skills/$name"
 done
 printf '%s\n' "${skills[@]}" > "$MANIFEST"
-# git push·원격 추가·gh·--no-verify 커밋을 막는 Codex 규칙(막는 규칙만, 허용 규칙 없음). 새 세션부터 읽힌다
+# git push·원격 추가·gh·--no-verify 커밋으로 시작하는 명령을 막는 Codex 규칙(막는 규칙만, 허용 규칙 없음). 새 세션부터 읽힌다
 cp "$SRC/codex/rules/chocochip-codex-harness.rules" "$DST/.codex/rules/chocochip-codex-harness.rules"
-paths=(AGENTS.md .agents .harness .codex/rules/chocochip-codex-harness.rules)
-# 추론 강도(평소 medium, /plan high). 과제에 .codex/config.toml이 있으면 건드리지 않는다
-CFG="$DST/.codex/config.toml"
-if [ ! -e "$CFG" ] || grep -qF "# chocochip-codex-harness" "$CFG"; then
-  cp "$SRC/codex/config.toml" "$CFG"
-  paths+=(.codex/config.toml)
-  cfg_msg="추론 강도: .codex/config.toml (평소 medium, /plan high. 상태 줄에서 확인)"
-else
-  cfg_msg="추론 강도: 과제의 .codex/config.toml이 있어 넣지 않았습니다. /plan 전에 /model에서 high를 고르세요"
-fi
-# 홈 폴더가 과제 저장소이면 .codex는 Codex 자체 폴더(대화 기록·인증)라 커밋하지 않는다(규칙·설정 파일은 그대로 깔린다)
-[ "$home_repo" -eq 1 ] && paths=(AGENTS.md .agents .harness)
+# Codex 설정 파일(.codex/config.toml)은 플랫폼이 관리하므로 만들거나 바꾸지 않는다
+skill_paths=()
+for name in "${skills[@]}"; do skill_paths+=(".agents/skills/$name"); done  # 과제가 둔 다른 .agents 파일은 커밋하지 않는다
+paths=(AGENTS.md "${skill_paths[@]}" .harness .codex/rules/chocochip-codex-harness.rules)
+# 홈 폴더가 과제 저장소이면 .codex는 Codex 자체 폴더(대화 기록·인증)라 커밋하지 않는다(규칙 파일은 그대로 깔린다)
+[ "$home_repo" -eq 1 ] && paths=(AGENTS.md "${skill_paths[@]}" .harness)
 
 # 키 파일과 사용자용 설명 노트(EXPLAIN.md)가 git add로 섞여 들어가지 않게 이 저장소에서만 제외한다(.gitignore는 건드리지 않는다)
 hook_msg="커밋 형식 훅: git 저장소가 아니라 넣지 않았습니다"
@@ -239,11 +239,11 @@ cat <<EOF
     \$verify    핵심 결과가 갖춰진 중간 점검(그 뒤 코드·데이터가 바뀌면 제출 전 한 번 더). 새 에이전트가 따로 계산, 행 대조, curl
     \$wrapup    마감할 때. 요건 대조, 새 에이전트 검토, 제출 문서, 키·개인정보 점검
     \$weakness  \$wrapup 뒤. 남은 약점, 한 화면 요약, 설명 점검
-    \$screen    화면을 만들거나 고칠 때(AGENTS.md가 읽게 함). 디자인 계획·배치·표·폼·상태 표시·그래프 가독성
+    \$screen    화면을 만들거나 고칠 때(AGENTS.md가 읽게 함). 역할별 답·근거·상태가 실제 폭에서 읽히게, 첫 화면 뒤·제출 전 ui_check로 확인
     \$criteria  정해지지 않은 기준(기준값·점수·우선순위 등)을 기준선과 다른 계열 후보 비교로 정하기
-- 도구: .harness/tools/ (env_check, profile_data, join_check, reconcile, precheck, selftest.sh)
-- 금지 규칙: .codex/rules/chocochip-codex-harness.rules (git push·원격 추가·gh·--no-verify 커밋을 막음. 커밋은 승인 창에서 y)
-- $cfg_msg
+- 도구: .harness/tools/ (env_check, profile_data, join_check, reconcile, precheck, ui_check, selftest.sh)
+- 금지 규칙: .codex/rules/chocochip-codex-harness.rules (git push·원격 추가·gh·--no-verify 커밋으로 시작하는 명령을 막음. 커밋은 승인 창에서 y)
+- Codex 설정 파일(.codex/config.toml)은 만들거나 바꾸지 않습니다(추론 강도·Fast는 치트시트의 시작 명령 참고)
 - $hook_msg
 - 치트시트: cat .harness/cheatsheet.md
 다음:

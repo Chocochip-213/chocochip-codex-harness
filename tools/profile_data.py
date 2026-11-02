@@ -61,12 +61,13 @@ YMD = re.compile(r"^(\d{4})\s*[-/.년]\s*(\d{1,2})\s*[-/.월]\s*(\d{1,2})(?:\s*�
                  r"(?:[ T]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?")
 HM = re.compile(r"^(\d{1,2}):(\d{2})(?::(\d{2}))?$")
 COMPACT_DATE = re.compile(r"^(19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])([ T]?\d{4}(\d{2})?)?$")
+SECRET_COL = re.compile(r"(password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key|private[_-]?key)", re.I)
 DATE_NAME = re.compile(r"(date|time|_at$|^ts$|_ts$|dt$|일자|일시|시각|날짜|시간|기간|월일)", re.I)
 NUM = re.compile(r"^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?$")
 ID_NAME = re.compile(r"(^id$|_id$|id$|^no$|_no$|번호$|아이디|^key$|_key$)", re.I)
 EMAIL = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
-PHONE = re.compile(r"(?<!\d)(01[016789]|0\d{1,2})[-. ]?\d{3,4}[-. ]?\d{4}(?!\d)")
-RRN = re.compile(r"(?<!\d)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])-?[1-8]\d{6}(?!\d)")  # 주민·외국인등록번호 모양
+PHONE = re.compile(r"(?<![\d+])(?<!\d\.)(\+82[-. ]?\(?0?\)?|0)(1[016789]|\d{1,2})[-. ]?\d{3,4}[-. ]?\d{4}(?!\d)")  # 국제 형식(+82)도. 소수점 뒤 숫자는 아님
+RRN = re.compile(r"(?<!\d)(?<!\d\.)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])-?[1-8]\d{6}(?!\d)")  # 주민·외국인등록번호 모양
 # 값이 비어 있지는 않지만 '값 없음'을 뜻할 수 있는 표기(대소문자 무시)
 PLACEHOLDERS = {"n/a", "na", "n.a.", "#n/a", "null", "none", "nil", "nan", "unknown", "unk", "-", "--", "—",
                 "?", "tbd", "tba", "미정", "없음", "해당없음", "해당 없음", "미상", "모름", "확인중", "확인 중"}
@@ -163,7 +164,7 @@ class Col:
         if RRN.search(s):
             self.rrn += 1
         if not self.capped:
-            self.counts[s] = self.counts.get(s, 0) + 1
+            self.counts[v] = self.counts.get(v, 0) + 1
             if len(self.counts) > (KEY_CAP if self.key_like else UNIQUE_CAP):
                 self.capped = True
         t = s.replace(",", "")
@@ -222,10 +223,14 @@ class Col:
 
     def report(self, top, rowword):
         out = []
+        if SECRET_COL.search(self.name):  # 비밀번호·토큰 열은 값·예시·범위를 보이지 않는다
+            uniq = f"{len(self.counts)}+" if self.capped else str(len(self.counts))
+            return [f"- {self.name}: 결측 {self.missing} · 값 종류 {uniq}(비밀 이름의 열이라 값은 보이지 않는다)"]
         uniq = f"{len(self.counts)}+" if self.capped else str(len(self.counts))
         parts = [f"결측 {self.missing}", f"값 종류 {uniq}"]
+        pii = self.email or self.phone or self.rrn  # 개인정보 모양이 있는 열은 값 범위·이상치 값을 보이지 않는다
         if self.filled and self.num == self.filled:
-            parts.append(f"숫자 {fmt(self.num_min)}~{fmt(self.num_max)}")
+            parts.append("숫자(개인정보 모양이라 범위 생략)" if pii else f"숫자 {fmt(self.num_min)}~{fmt(self.num_max)}")
             if self.lead0:
                 parts.append(f"앞자리 0인 값 {self.lead0}개(숫자로 바꾸면 0이 사라짐)")
         elif self.num and self.num >= self.filled * 0.5:
@@ -237,14 +242,14 @@ class Col:
             ph = sorted(self.placeholders.items(), key=lambda kv: -kv[1])
             out.append(f"    자리표시로 보이는 값 {sum(n for _, n in ph)}개: " +
                        ", ".join(f"'{k}'×{n}" for k, n in ph))
-        if self.num and self.num >= self.filled * 0.5:
+        if self.num and self.num >= self.filled * 0.5 and not pii:
             out.extend(self.numeric_report())
         if self.shapes:
             dated = sum(e[0] for e in self.shapes.values())
             rows = sorted(self.shapes.items(), key=lambda kv: -kv[1][0])
             shown, tail = cut(rows, 4)
             desc = "; ".join(
-                f"{sh} ×{e[0]}" + (f" ({e[1]} ~ {e[2]})" if e[0] > 1 else f" ({rowword}{e[3]} '{e[1]}')")
+                f"{short(sh)} ×{e[0]}" + (f" ({short(e[1])} ~ {short(e[2])})" if e[0] > 1 else f" ({rowword}{e[3]} '{short(e[1])}')")
                 for sh, e in shown)
             label = "날짜·시각 모양 섞임" if len(rows) > 1 else "날짜·시각 모양"
             out.append(f"    {label}: {desc}{tail}")
@@ -252,7 +257,7 @@ class Col:
                 out.append(f"    날짜·시각 모양이 아닌 값 {self.filled - dated}개")
             if self.bad_n:
                 out.append(f"    없는 날짜·시각 {self.bad_n}개: " +
-                           ", ".join(f"{rowword}{r} '{v}'" for r, v in self.bad_dates) +
+                           ", ".join(f"{rowword}{r} '{short(v)}'" for r, v in self.bad_dates) +
                            (f" 외 {self.bad_n - len(self.bad_dates)}개" if self.bad_n > len(self.bad_dates) else ""))
         if self.counts and not self.capped:
             ranked = sorted(self.counts.items(), key=lambda kv: (-kv[1], kv[0]))
@@ -333,7 +338,7 @@ def profile(title, header, rows, top, rowword, keys, extra=None):
             width_n += 1
             if keep(width_bad, 3):
                 width_bad.append((rowno, len(vals)))
-        key = "\x1f".join("" if v is None else str(v).strip() for v in vals)
+        key = "\x1f".join("" if v is None else str(v) for v in vals)
         if key in first_seen:
             dup_n += 1
             if keep(dup_ex, 3):
@@ -343,7 +348,7 @@ def profile(title, header, rows, top, rowword, keys, extra=None):
         for j, c in enumerate(cols):
             c.add(vals[j] if j < len(vals) else None, rowno)
         for _, idx, seen in key_idx:
-            kv = tuple("" if j >= len(vals) or vals[j] is None else str(vals[j]).strip() for j in idx)
+            kv = tuple("" if j >= len(vals) or vals[j] is None else str(vals[j]) for j in idx)
             seen.setdefault(kv, []).append(rowno)
     print(f"행 {nrows}개, 열 {len(cols)}개" + (f", 빈 행 {blank}개" if blank else ""))
     if width_n:
@@ -356,8 +361,9 @@ def profile(title, header, rows, top, rowword, keys, extra=None):
         msg = f"  키 {k}: 고유 {len(seen)}개 / 행 {nrows}개"
         if dups:
             shown, tail = cut(dups, 3)
+            hide = any(SECRET_COL.search(c) for c in k.split("+"))  # 비밀 이름 열이 든 키는 값 대신 행만
             msg += f", 두 번 이상 나온 키 {len(dups)}개(예: " + "; ".join(
-                f"{'+'.join(kv)} → {', '.join(rowword + str(r) for r in cut(rs, 3)[0])}" for kv, rs in shown) + tail + ")"
+                f"{'(값 가림)' if hide else '+'.join(short(x, 30) for x in kv)} → {', '.join(rowword + str(r) for r in cut(rs, 3)[0])}" for kv, rs in shown) + tail + ")"
         print(msg)
     for c in cols:
         for line in c.report(top, rowword):

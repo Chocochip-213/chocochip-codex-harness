@@ -47,9 +47,9 @@ KEY_PATTERNS = [
     re.compile(r"(?i)^\s*[\w.-]*" + SECRET_NAME + r"\s*:\s*[^\s#(\[\"'$]{8,}\s*$"),
 ]
 EMAIL = r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}"
-MOBILE = r"(?<![\d+])(\+82[-. ]?|0)1[016789][-. ]?\d{3,4}[-. ]?\d{4}(?!\d)"
-LANDLINE = r"(?<![\d+])(\+82[-. ]?|0)(2|3[1-3]|4[1-4]|5[1-5]|6[1-4]|70|50\d)[-. ]?\d{3,4}[-. ]?\d{4}(?!\d)"
-RRN = r"(?<!\d)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])-?[1-8]\d{6}(?!\d)"
+MOBILE = r"(?<![\d+])(?<!\d\.)(\+82[-. ]?|0)1[016789][-. ]?\d{3,4}[-. ]?\d{4}(?!\d)"
+LANDLINE = r"(?<![\d+])(?<!\d\.)(\+82[-. ]?|0)(2|3[1-3]|4[1-4]|5[1-5]|6[1-4]|70|50\d)[-. ]?\d{3,4}[-. ]?\d{4}(?!\d)"
+RRN = r"(?<!\d)(?<!\d\.)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])-?[1-8]\d{6}(?!\d)"
 CATEGORIES = [
     ("key", "키 모양", KEY_PATTERNS),
     ("todo", "할 일 표시(TODO·FIXME)", [re.compile(r"\b(TODO|FIXME)\b")]),
@@ -59,7 +59,7 @@ CATEGORIES = [
     ("rrn", "주민·외국인등록번호 모양", [re.compile(RRN)]),
 ]
 PII = {"email", "phone", "landline", "rrn"}
-TMP_REF = re.compile(r"(?<![\w.])/tmp(?![\w-])")
+TMP_REF = re.compile(r"(?<![\w.])/tmp(?![\w-])(?!/server(_copy)?\.(log|pid)\b)")  # AGENTS.md·verify가 정한 서버 로그·PID 경로는 빼고
 DIFF_NAME = re.compile(r"^verify/diff_(\d+)\.csv$")
 FILE_CHECKS = [("tmp", "제출 문서의 /tmp 인용"), ("diff", "남은 검증 차이"), ("unread", "열지 못한 파일")]
 MASKS = [
@@ -69,6 +69,7 @@ MASKS = [
     (re.compile(LANDLINE), "<전화번호>"),
 ]
 LINE_SHOW = 200
+SECRET_LINE = re.compile(r"(?i)" + SECRET_NAME + r"[\"']?\s*[:=]")  # 비밀 이름에 값을 넣는 줄. 출력에서만 쓴다
 
 
 def mask_secret(chunk):
@@ -83,7 +84,7 @@ def mask_secret(chunk):
 
 
 def mask_line(line, key_spans):
-    """개인정보는 종류 이름으로, 키 모양 값은 앞 4자만 남기고 가린다."""
+    """개인정보는 종류 이름으로, 키 모양 값은 앞 4자만 남기고 가린다. 비밀 이름에 값을 넣는 줄은 본문을 생략한다."""
     out = line
     merged = []
     for start, end in sorted(key_spans):
@@ -93,6 +94,8 @@ def mask_line(line, key_spans):
             merged.append((start, end))
     for start, end in reversed(merged):
         out = out[:start] + mask_secret(out[start:end]) + out[end:]
+    if SECRET_LINE.search(line):  # 문자열 문법을 다 해석하지 않고 줄째 생략한다(일부라도 새지 않게)
+        return "[비밀 이름 대입 줄: 본문 생략]"
     for pat, label in MASKS:
         out = pat.sub(label, out)
     out = out.strip()

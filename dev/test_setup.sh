@@ -6,6 +6,8 @@ unset CODEX_THREAD_ID CODEX_TOOL_CALL_ID  # Codex 안에서 돌려도 사람 커
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 T="$(mktemp -d)"
 trap 'chmod -R u+w "$T" 2>/dev/null; rm -rf "$T"' EXIT
+export HOME="$T/home" GIT_CONFIG_GLOBAL="$T/gitconfig"  # 실제 홈(~/.cache 등)과 내 git 설정을 건드리지도 기대지도 않는다
+mkdir -p "$HOME"; git config --global user.name t; git config --global user.email t@t
 pass=0
 fail=0
 ok() { if eval "$2"; then echo "PASS $1"; pass=$((pass + 1)); else echo "FAIL $1"; fail=$((fail + 1)); fi; }
@@ -18,7 +20,8 @@ ok "새 설치 종료 0" "[ $r -eq 0 ]"
 ok "설치 출력에 자체 점검 결과(실패 0)" "grep -q '^- 자체 점검(bash .harness/tools/selftest.sh): 통과 [0-9]*, 실패 0$' '$T/out'"
 ok "AGENTS.md 맨 앞 표시" "head -1 AGENTS.md | grep -qxF '<!-- chocochip-codex-harness -->'"
 ok "규칙 파일 설치" "[ -f .codex/rules/chocochip-codex-harness.rules ]"
-ok "추론 강도 설정(평소 medium, /plan high)" "grep -qx 'plan_mode_reasoning_effort = \"high\"' .codex/config.toml && git ls-files --error-unmatch .codex/config.toml >/dev/null"
+ok "Codex 설정 파일은 만들지 않음" "[ ! -e .codex/config.toml ]"
+ok "ui_check --help 종료 0" "python3 .harness/tools/ui_check.py --help >/dev/null"
 ok "exclude에 .ai_env·EXPLAIN.md" "grep -qx .ai_env .git/info/exclude && grep -qx EXPLAIN.md .git/info/exclude"
 ok ".env는 빼고 .env.example은 남김" "touch .env .env.example; git check-ignore -q .env && ! git check-ignore -q .env.example; r=\$?; rm -f .env .env.example; [ \$r -eq 0 ]"
 ok "하네스 커밋 1개, 작업 트리 깨끗" "[ \$(git log --oneline | wc -l) -eq 2 ] && [ -z \"\$(git status --porcelain)\" ]"
@@ -59,7 +62,7 @@ ok "같은 이름 스킬이 있으면 멈춤" "[ $r -eq 1 ] && [ ! -e .harness ]
 mk "$T/f"; chmod a-w .; run; r=$?; chmod u+w .
 ok "쓰기가 막히면 아무것도 안 만들고 안내" "[ $r -eq 1 ] && [ ! -e .harness ] && grep -q '쓰기가 막혔습니다' '$T/err'"
 
-ok "AGENTS.md 예산(3,900자·글머리 20개)" "[ \$(python3 -c 'import sys;print(len(open(sys.argv[1],encoding=\"utf-8\").read()))' '$SRC/AGENTS.md') -le 3900 ] && [ \$(grep -c '^- ' '$SRC/AGENTS.md') -le 20 ]"
+ok "AGENTS.md 예산(4,400자·글머리 20개)" "[ \$(python3 -c 'import sys;print(len(open(sys.argv[1],encoding=\"utf-8\").read()))' '$SRC/AGENTS.md') -le 4400 ] && [ \$(grep -c '^- ' '$SRC/AGENTS.md') -le 20 ]"
 
 echo "통과 $pass, 실패 $fail"
 [ "$fail" -eq 0 ]

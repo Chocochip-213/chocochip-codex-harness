@@ -10,7 +10,8 @@
 - 짝이 없는 왼쪽 행·오른쪽 키(그냥 합치면 조용히 빠짐)
 - 키가 비거나 일부 빈 행(어느 쪽이든 조인에서 빠진다. 빈 키끼리는 맞추지 않는다)
 - inner·left 조인 결과 행 수
-- 공백·대소문자·기호를 지우고 맞추면 더 맞는 키(표기 흔들림)
+- 공백·대소문자·기호를 지우고 맞추면 더 맞는 키(표기 흔들림). 키 값은 앞뒤 공백도 지우지 않고 그대로 맞춘다
+  (표기가 다른 키를 같은 대상으로 볼지는 담당자 기준이다)
 개수는 전체를 세고 예시만 일부 보여 준다(--show 0이면 전부). 읽는 형식: .csv .tsv .json .jsonl
 종료 코드: 0 점검함, 2 어느 쪽이든 행이 0개, 3 사용법·파일 오류.
 """
@@ -30,8 +31,8 @@ if hasattr(signal, "SIGPIPE"):  # 출력을 head 등으로 자를 때 오류 없
 ENCODINGS = ("utf-8-sig", "cp949")
 csv.field_size_limit(2**31 - 1)
 EMAIL = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
-PHONE = re.compile(r"(?<!\d)(01[016789]|0\d{1,2})[-. ]?\d{3,4}[-. ]?\d{4}(?!\d)")
-RRN = re.compile(r"(?<!\d)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])-?[1-8]\d{6}(?!\d)")  # 주민·외국인등록번호 모양
+PHONE = re.compile(r"(?<![\d+])(?<!\d\.)(\+82[-. ]?\(?0?\)?|0)(1[016789]|\d{1,2})[-. ]?\d{3,4}[-. ]?\d{4}(?!\d)")  # 국제 형식(+82)도. 소수점 뒤 숫자는 아님
+RRN = re.compile(r"(?<!\d)(?<!\d\.)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])-?[1-8]\d{6}(?!\d)")  # 주민·외국인등록번호 모양
 
 
 def die(msg):
@@ -52,7 +53,7 @@ def read_text(path):
             return raw.decode(enc)
         except UnicodeDecodeError:
             pass
-    return raw.decode("utf-8", errors="replace")
+    die(f"{path}: UTF-8·CP949로 읽지 못했습니다(글자를 바꿔 읽으면 다른 ID가 같아질 수 있어 멈춤)")
 
 
 def split_spec(spec):
@@ -84,8 +85,8 @@ def pick_rows(data, path):
     return rows
 
 
-def records(path):
-    """(열 이름 목록, dict 목록)"""
+def records(path, used=()):
+    """(열 이름 목록, dict 목록). used: 대조에 쓰는 열(CSV에서 이 열 이름이 겹치면 멈춘다)"""
     p = Path(path)
     if not p.is_file():
         die(f"없는 파일: {path}")
@@ -97,9 +98,20 @@ def records(path):
         elif ext == ".json":
             recs = pick_rows(json.loads(text), path)
         else:
-            reader = csv.DictReader(io.StringIO(text, newline=""), delimiter="\t" if ext == ".tsv" else ",")
+            if ext == ".tsv":
+                delim = "\t"
+            else:
+                try:  # profile_data와 같은 판별
+                    delim = csv.Sniffer().sniff(text[:8192], delimiters=",\t;|").delimiter
+                except csv.Error:
+                    delim = ","
+            reader = csv.DictReader(io.StringIO(text, newline=""), delimiter=delim)
             recs = list(reader)
-            return list(reader.fieldnames or []), recs
+            names = list(reader.fieldnames or [])
+            dup = sorted({n for n in used if names.count(n) > 1})
+            if dup:
+                die(f"{path}: 대조에 쓰는 열과 이름이 같은 열 {dup}(앞 열이 조용히 버려져 멈춤)")
+            return names, recs
     except (json.JSONDecodeError, csv.Error) as e:
         die(f"{path}: 읽지 못했습니다({type(e).__name__}: {e})")
     bad = [i for i, r in enumerate(recs, start=1) if not isinstance(r, dict)]
@@ -114,11 +126,11 @@ def records(path):
 
 
 def key_of(r, cols):
-    return tuple("" if r.get(c) is None else str(r.get(c)).strip() for c in cols)
+    return tuple("" if r.get(c) is None else str(r.get(c)) for c in cols)  # 공백도 지우지 않는다(같은 대상인지는 업무 기준)
 
 
 def is_empty(k):
-    return any(x == "" for x in k)
+    return any(x.strip() == "" for x in k)
 
 
 def norm(k):
@@ -148,7 +160,7 @@ def main():
     rp, rc = split_spec(a.right)
     if len(lc) != len(rc):
         die("왼쪽과 오른쪽 키 열 개수가 다릅니다")
-    (lnames, left), (rnames, right) = records(lp), records(rp)
+    (lnames, left), (rnames, right) = records(lp, lc), records(rp, rc)
     for path, cols, names, rows in ((lp, lc, lnames, left), (rp, rc, rnames, right)):
         if not names and not rows:
             continue  # 빈 목록이라 열 정보가 없다. 아래에서 검사 0건으로 끝난다.

@@ -1,5 +1,5 @@
 interface:
   display_name: "screen"
-  short_description: "디자인 계획, 배치, 표·폼·상태 표시, 그래프 가독성"
+  short_description: "역할별 답·근거·상태가 실제 폭에서 읽히게, 첫 화면 뒤·제출 전 ui_check"
 policy:
   allow_implicit_invocation: false
