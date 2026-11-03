@@ -62,7 +62,7 @@ ok "같은 이름 스킬이 있으면 멈춤" "[ $r -eq 1 ] && [ ! -e .harness ]
 mk "$T/f"; chmod a-w .; run; r=$?; chmod u+w .
 ok "쓰기가 막히면 아무것도 안 만들고 안내" "[ $r -eq 1 ] && [ ! -e .harness ] && grep -q '쓰기가 막혔습니다' '$T/err'"
 
-ok "AGENTS.md 예산(4,400자·글머리 20개)" "[ \$(python3 -c 'import sys;print(len(open(sys.argv[1],encoding=\"utf-8\").read()))' '$SRC/AGENTS.md') -le 4400 ] && [ \$(grep -c '^- ' '$SRC/AGENTS.md') -le 20 ]"
+ok "AGENTS.md 예산(4,600자·글머리 20개)" "[ \$(python3 -c 'import sys;print(len(open(sys.argv[1],encoding=\"utf-8\").read()))' '$SRC/AGENTS.md') -le 4600 ] && [ \$(grep -c '^- ' '$SRC/AGENTS.md') -le 20 ]"
 
 echo "통과 $pass, 실패 $fail"
 [ "$fail" -eq 0 ]

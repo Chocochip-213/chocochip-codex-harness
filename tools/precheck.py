@@ -57,6 +57,7 @@ CATEGORIES = [
     ("phone", "휴대전화번호", [re.compile(MOBILE)]),
     ("landline", "유선·인터넷 전화번호 모양", [re.compile(LANDLINE)]),
     ("rrn", "주민·외국인등록번호 모양", [re.compile(RRN)]),
+    ("lang", "다른 글자(가나·한자)", [re.compile(r"[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff]")]),
 ]
 PII = {"email", "phone", "landline", "rrn"}
 TMP_REF = re.compile(r"(?<![\w.])/tmp(?![\w-])(?!/server(_copy)?\.(log|pid)\b)")  # AGENTS.md·verify가 정한 서버 로그·PID 경로는 빼고
@@ -222,6 +223,7 @@ def file_checks(files):
 FILE_GUIDE = {
     "tmp": "근거로 든 스크립트면 커밋된 곳(verify/ 등)으로 옮기거나 문장을 고친다. 행 목록 같은 자료 사본 경로면 남겨도 된다",
     "diff": "고쳤으면 verify 비교를 다시 해 diff·report를 지금 값으로 갱신한다. 나중 검증에서 같아졌거나 고치지 않았으면 남긴 이유를 적는다",
+    "lang": "내가 쓴 답·문서·화면 문구에 섞인 것이면 한국어 낱말로 고친다. 외부 라이브러리, 과제 자료를 그대로 옮긴 값·인용, 문자 처리에 필요한 식별자·정규식이면 바꾸지 않고 남긴 이유를 적는다(데이터 파일은 이 검사에서 뺀다)",
     "unread": "검사하지 못했다. 권한을 확인하거나 남긴 이유를 적는다",
 }
 
@@ -265,6 +267,8 @@ def main():
             for key, _, pats in CATEGORIES:
                 if not (spans if key == "key" else any(p.search(line) for p in pats)):
                     continue
+                if key == "lang" and is_data:
+                    continue  # 데이터 파일(.csv·.json 등)의 값은 과제 자료이므로 언어 검사에서 뺀다
                 if key in PII and is_data and not a.show_data:
                     data_counts.setdefault(name, {}).setdefault(key, 0)
                     data_counts[name][key] += 1
@@ -291,8 +295,11 @@ def main():
     for key in order:
         if found[key]:
             print(f"[{labels[key]}] {len(found[key])}건" + (f" → {FILE_GUIDE[key]}" if key in FILE_GUIDE else ""))
-            for r in found[key]:
+            shown = found[key][:10] if key == "lang" else found[key]
+            for r in shown:
                 print("  " + r)
+            if len(shown) < len(found[key]):
+                print(f"  나머지 {len(found[key]) - len(shown)}줄은 생략(건수에는 들어 있다)")
     if data_counts:
         print(f"[데이터 파일의 개인정보 모양] {dsum}줄. 입력 데이터에 원래 있던 값일 수 있어 파일별 줄 수만 보인다(줄까지는 --show-data):")
         for name in sorted(data_counts):

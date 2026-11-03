@@ -52,8 +52,9 @@ check "join_check 객체로 감싼 JSON의 행 목록에 객체가 아닌 항목
 check "join_check 행 목록 이름이 없으면 객체만 든 목록을 섞인 목록보다 먼저 읽고(종료 0), 이름 있는 빈 행 목록은 다른 목록으로 넘어가지 않음(종료 2)" bash -c "printf '{\"metadata\":[\"info\",{\"version\":1}],\"orders\":[{\"customer_id\":\"C-01\"}]}' > '$T/meta.json'; python3 '$TOOLS/join_check.py' --left '$T/meta.json:customer_id' --right '$S/customers.csv:customer_id' > /dev/null 2>&1 || exit 1; printf '{\"rows\":[],\"metadata\":[{\"customer_id\":\"C-99\"}]}' > '$T/emptyrows.json'; python3 '$TOOLS/join_check.py' --left '$T/emptyrows.json:customer_id' --right '$S/customers.csv:customer_id' > /dev/null 2>&1; [ \$? -eq 2 ]"
 check "join_check 이름 있는 행 목록에 객체가 하나도 없어도 건너뛰지 않고 멈춤 → 종료 3" bash -c "printf '{\"rows\":[1],\"metadata\":[{\"customer_id\":\"C-99\"}]}' > '$T/norows.json'; python3 '$TOOLS/join_check.py' --left '$T/norows.json:customer_id' --right '$S/customers.csv:customer_id' > /dev/null 2>&1; [ \$? -eq 3 ]"
 
-mkdir -p "$T/todo" "$T/clean"
+mkdir -p "$T/todo" "$T/clean" "$T/lang"
 check "precheck가 할 일 표시를 찾음 → 종료 1" bash -c "cd '$T/todo' && printf 'x = 1  # TODO 고치기\n' > a.py; python3 '$TOOLS/precheck.py' > '$T/pc.txt'; [ \$? -eq 1 ] && grep -q 'TODO' '$T/pc.txt'"
+check "precheck가 가나·한자를 찾고 데이터 파일은 뺌 → 종료 1" bash -c "cd '$T/lang' && printf '再시작 보존\n설명 テスト\n' > a.md && printf 'city\n東京\n' > b.csv; python3 '$TOOLS/precheck.py' > '$T/lg.txt'; [ \$? -eq 1 ] && grep -Fq '[다른 글자(가나·한자)] 2건' '$T/lg.txt'"
 check "precheck 찾은 것 없음 → 종료 0" bash -c "cd '$T/clean' && printf 'print(1)\n' > a.py && python3 '$TOOLS/precheck.py'"
 mkdir -p "$T/stale/verify" "$T/redo/verify" "$T/vnote/verify" "$T/empty/verify"
 check "precheck가 /tmp 인용·남은 검증 차이를 찾고 키는 가림 → 종료 1" bash -c "cd '$T/stale' && printf '검증: python3 /tmp/x.py --token sk-ABCDEFGHIJKLMNOPQRSTUVWX\n' > HANDOFF.md && printf 'id,diff\nA,1\n' > verify/diff_1.csv && printf '보고\n' > verify/report_1.md; python3 '$TOOLS/precheck.py' > '$T/st.txt'; [ \$? -eq 1 ] && grep -q '\[제출 문서의 /tmp 인용\] 1건' '$T/st.txt' && grep -q '\[남은 검증 차이\] 1건' '$T/st.txt' && ! grep -q 'ABCDEFGHIJKLMNOPQRSTUVWX' '$T/st.txt'"

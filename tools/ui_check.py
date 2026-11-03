@@ -50,7 +50,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 INSTALL_HINT = (
-    "Playwright가 없습니다. 설치(지금 권한에서 네트워크가 막혀 있으면 승인을 받아 샌드박스 밖에서): python3 -m pip install playwright && python3 -m playwright install --only-shell chromium\n"
+    "Playwright가 없습니다. 가상환경에 설치했으면 그 파이썬(예: .venv/bin/python)으로 이 도구를 실행한다. 설치(지금 권한에서 네트워크가 막혀 있으면 승인을 받아 샌드박스 밖에서): python3 -m pip install playwright && python3 -m playwright install --only-shell chromium\n"
     "(pip가 막혀 있으면 설치하지 않고, 사용자가 IDE 브라우저에서 실제 폭으로 보고 어느 영역이 어떻게 보이는지 말해 주는 방식으로 대신한다)"
 )
 BROWSER_HINT = (
