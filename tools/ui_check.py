@@ -33,7 +33,7 @@
   ~/.local/share/fonts/ui_check에 둔다. 어느 쪽이든 무엇을 했는지 한 줄로 알린다.
     설치: python3 -m pip install playwright && python3 -m playwright install --only-shell chromium(지금 권한에서 네트워크가 막혀 있으면 승인을 받아 샌드박스 밖에서)
     이미 설치된 Chrome·Edge가 있으면 브라우저 내려받기 대신 --channel chrome 또는 --channel msedge 를 쓴다.
-- 종료 코드: 0 문제 없음, 1 문제 있음(개수는 report.json), 2 Playwright·브라우저 없음, 3 사용법·접속·실행 오류.
+- 종료 코드: 0 배치 문제 없음, 1 배치 문제 있음(개수는 report.json. 글자 내용은 재지 않는다), 2 Playwright·브라우저 없음, 3 사용법·접속·실행 오류.
 - 로그인 상태 파일(--save-state)과 PNG는 커밋하지 않는다. 인증을 우회하지 않는다. 입력칸의 값, 주소의 계정 정보·물음표·# 뒤,
   로그인에 쓴 계정 값은 기록·출력하지 않는다.
 - 로그인 뒤에도 비밀번호 칸이 보이면 로그인되지 않은 것으로 보고 종료 3. 로그인 상태는 목표 화면에 실제로 도착한 것을 본 뒤에만
@@ -582,7 +582,7 @@ def main(argv=None):
     problems = sum(min(m["page_overflow"], 1) + sum(m[k] for k in PROBLEM_KEYS if k != "page_overflow")
                    for m in report["widths"].values())  # 가로 넘침은 픽셀이 아니라 1건으로 센다
     code = 1 if problems else 0
-    print(f"요약: 종료 {code}, 폭 {len(widths)}개, 문제 {problems}건, report: {out / 'report.json'}")
+    print(f"요약: 종료 {code}, 폭 {len(widths)}개, 배치 문제 {problems}건(글자 내용은 재지 않음: 내부 값·영문 코드는 본문을 읽어 본다), report: {out / 'report.json'}")
     for w, m in report["widths"].items():
         moved = (f", 로그인 화면으로 돌아감: {m['final_url']}(그 화면을 본 것이 아니다)" if m["to_login"]
                  else f", 다른 주소로 열림(정보): {m['final_url']}" if m["redirected"] else "")
