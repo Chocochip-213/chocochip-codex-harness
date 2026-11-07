@@ -1,0 +1,5 @@
+interface:
+  display_name: "tutor"
+  short_description: "읽기 전용 둘째 탭에서 진행 중인 단계의 방법·이유·다른 안 설명"
+policy:
+  allow_implicit_invocation: false

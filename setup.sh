@@ -241,6 +241,7 @@ cat <<EOF
     \$weakness  \$wrapup 뒤. 남은 약점, 한 화면 요약, 설명 점검
     \$screen    화면을 만들거나 고칠 때(AGENTS.md가 읽게 함). 역할별 답·근거·상태가 실제 폭에서 읽히게, 첫 화면 뒤·제출 전 ui_check로 확인
     \$criteria  정해지지 않은 기준(기준값·점수·우선순위 등)을 기준선과 다른 계열 후보 비교로 정하기
+    \$tutor     개발 중 다른 탭의 읽기 전용 Codex(codex -s read-only -a never)에서. 지금 단계의 방법·기록된 이유·다른 안·실제 한 건의 길을 설명. 파일을 쓰지 않음
 - 도구: .harness/tools/ (env_check, profile_data, join_check, reconcile, precheck, ui_check, selftest.sh)
 - 금지 규칙: .codex/rules/chocochip-codex-harness.rules (git push·원격 추가·gh·--no-verify 커밋으로 시작하는 명령을 막음. 커밋은 승인 창에서 y)
 - Codex 설정 파일(.codex/config.toml)은 만들거나 바꾸지 않습니다(추론 강도·Fast는 치트시트의 시작 명령 참고)
